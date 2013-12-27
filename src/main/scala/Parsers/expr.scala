@@ -1,69 +1,51 @@
 package Etypes
 
+import Ctypes._
+
 trait Expr{
-  def eval():Int
+//def eval():Int
 }
 
 case class EConst(value:Int) extends Expr {
   def eval():Int = value
 }
 
-case class EAdd(left:Expr, right:Expr) extends Expr {
-    def eval():Int = left.eval() + right.eval()
-}
-
-case class ESub(left:Expr, right:Expr) extends Expr {
-    def eval():Int = left.eval() - right.eval()
-}
-
-case class EMul(left:Expr, right:Expr) extends Expr {
-    def eval():Int = left.eval() * right.eval()
-}
-
-case class EMod(left:Expr, right:Expr) extends Expr {
-    def eval():Int = left.eval() % right.eval()
-}
-
-case class EDiv(left:Expr, right:Expr) extends Expr {
-    def eval():Int = left.eval() / right.eval()
-}
-
-case class EGt(left:Expr, right:Expr) extends Expr {
-  def eval():Int =
-    if (left.eval() > right.eval) 1
-    else 0
+case class EString(value:String) extends Expr {
+    def eval():Int = 1
   }
 
-case class ELt(left:Expr, right:Expr) extends Expr {
-  def eval():Int =
-    if (left.eval() < right.eval) 1
-    else 0
-  }
+case class EApp(id:CIdent, eList:List[Expr]) extends Expr {}
 
-case class EGeq(left:Expr, right:Expr) extends Expr {
-  def eval():Int =
-    if (left.eval() >= right.eval) 1
-    else 0
-  }
+case class ELitTrue() extends Expr {}
 
-case class ELeq(left:Expr, right:Expr) extends Expr {
-  def eval():Int =
-    if (left.eval() <= right.eval) 1
-    else 0
-  }
+case class ELitFalse() extends Expr {}
 
-case class EEq(left:Expr, right:Expr) extends Expr {
-  def eval():Int =
-    if (left.eval() == right.eval) 1
-    else 0
-  }
+case class EUMinus(e:Expr) extends Expr {}
 
-case class ENeq(left:Expr, right:Expr) extends Expr {
-  def eval():Int =
-    if (left.eval() != right.eval) 1
-    else 0
-  }
+case class EUNeg(e:Expr) extends Expr {}
 
-case class ESum(sum:List[Expr]) extends Expr {
-  def eval():Int = sum.foldLeft(0)(_+_.eval)
-}
+case class EAdd(left:Expr, right:Expr) extends Expr {}
+
+case class ESub(left:Expr, right:Expr) extends Expr {}
+
+case class EMul(left:Expr, right:Expr) extends Expr {}
+
+case class EMod(left:Expr, right:Expr) extends Expr {}
+
+case class EDiv(left:Expr, right:Expr) extends Expr {}
+
+case class EGt(left:Expr, right:Expr) extends Expr {}
+
+case class ELt(left:Expr, right:Expr) extends Expr {}
+
+case class EGeq(left:Expr, right:Expr) extends Expr {}
+
+case class ELeq(left:Expr, right:Expr) extends Expr {}
+
+case class EEq(left:Expr, right:Expr) extends Expr {}
+
+case class ENeq(left:Expr, right:Expr) extends Expr {}
+
+case class EAnd(left:Expr, right:Expr) extends Expr {}
+
+case class EOr(left:Expr, right:Expr) extends Expr {}
