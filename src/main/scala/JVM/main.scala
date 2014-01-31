@@ -226,7 +226,7 @@ object JVM {
   }
 
 
-  def main(args:Array[String]) = {
+/*  def main(args:Array[String]) = {
     val tokens = ProgramParser.parse(read(args(0)))
     val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
@@ -240,5 +240,5 @@ object JVM {
     val p = new java.io.PrintWriter(new File(dir_name + "out/" + pref_name + ".j"))
     p.println(jvmCode)
     p.close()
-  }
+  } */
 }

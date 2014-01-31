@@ -22,11 +22,11 @@ trait ExprParser extends StandardTokenParsers with CommonParser{
 
     def oper = sum * (
       ">" ^^^ { (a:Expr, b:Expr) => EGt(a,b) } |
-      "<" ^^^ { (a:Expr, b:Expr) => ELt(b,a) } |
+      "<" ^^^ { (a:Expr, b:Expr) => ELt(a,b) } |
       "==" ^^^ { (a:Expr, b:Expr) => EEq(a,b) } |
       "!=" ^^^ { (a:Expr, b:Expr) => ENeq(a,b) } |
       "<=" ^^^ { (a:Expr, b:Expr) => ELeq(a,b) } |
-      ">=" ^^^ { (a:Expr, b:Expr) => EGeq(b,a) } )
+      ">=" ^^^ { (a:Expr, b:Expr) => EGeq(a,b) } )
 
     def sum = product * (
       "+" ^^^ { (a:Expr, b:Expr) => EAdd(a,b) } |
