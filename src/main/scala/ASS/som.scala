@@ -18,6 +18,7 @@ object Assembly {
   var pushCount : Int = 1
   var currentFunId : String = ""
   var labelCount : Int = 0
+  var endLabelCount : Int = 0
   val variables = scala.collection.mutable.Map[(CIdent,Int), Int]()
   val func = scala.collection.mutable.Map[CIdent,(Type,List[PArg])]()
 
@@ -133,33 +134,29 @@ object Assembly {
       //ret
       case SCond(e,s) => 
         expr(e)
+        assCode += "cmpl $0, %eax\n"
+        assCode += "je .endIf" + labelNr + "\n"
         stmt(s, blockNr, labelNr+1)
-        assCode += ".L" + labelNr + ":\n"
+        assCode += ".endIf" + labelNr + ":\n"
 
       case SCondElse(e,s1, s2) => 
-        var tmp = blockNr
-        tmp -= labelCount
         expr(e)
-        tmp += labelCount
-        assCode += "ifeq else_" + tmp + "\n"
-        labelCount += 1
-        stmt(s1, blockNr, labelCount)
-        assCode += "goto end_" + tmp + "\n"
-        assCode += "else_" + tmp + ":\n"
-        stmt(s2, blockNr, labelCount)
-        assCode += "end_" + tmp +":\n"
+        assCode += "cmpl $0, %eax\n"
+        assCode += "je .else" + labelNr + "\n"
+        stmt(s1, blockNr, labelNr+2)
+        assCode += "jmp .endElse" + (labelNr + 1) + "\n"
+        assCode += ".else" + labelNr + ":\n"
+        stmt(s2, blockNr, labelNr+2)
+        assCode += ".endElse" + (labelNr + 1) + ":\n"
 
       case SWhile(e, s) =>
-        assCode += "while_" + blockNr + ":\n"
-        var tmp = blockNr
-        tmp -= labelCount
+        assCode += "while_" + labelNr + ":\n"
         expr(e)
-        tmp += labelCount
-        assCode += "ifeq end_" + tmp + "\n"
-        labelCount += 1
-        stmt(s, blockNr, labelCount)
-        assCode += "goto while_" + blockNr + "\n"
-        assCode += "end_" + tmp +":\n"
+        assCode += "cmpl $0, %eax\n"
+        assCode += "je end_" + labelNr + "\n"
+        stmt(s, blockNr, labelNr+2)
+        assCode += "jmp while_" + labelNr + "\n"
+        assCode += ".end" + labelNr + ":\n"
       case SBlock(x) => block(SBlock(x), blockNr + 1)
     }
   }
@@ -172,12 +169,12 @@ object Assembly {
   }
   def compareOperation(text : String, e1 : Expr, e2 : Expr) : Unit = {
     basicOperation(e1, e2)
-    exprHelper(text)
-  }
-
-  def exprHelper(text : String) = {
     assCode += "cmpl %eax, %ebx\n"
-    assCode += text + " .L"+labelCount+"\n"
+    assCode += "movl $1, %eax\n"
+    assCode += text + " T"+labelCount+"\n"
+    assCode += "movl $0, %eax\n"
+    assCode += "T"+labelCount+":\n"
+    labelCount += 1
   }
 
   def expr(input : Expr) : Unit = {
@@ -206,22 +203,31 @@ object Assembly {
         assCode += "idiv\n"
       case EGt(e1, e2) =>
         //ifeq label
-        compareOperation("jle", e1, e2)
-      case ELt(e1, e2) =>
-        compareOperation("jge", e1, e2)
-      case EGeq(e1, e2) =>
-        compareOperation("jl", e1, e2)
-      case ELeq(e1, e2) =>
         compareOperation("jg", e1, e2)
+      case ELt(e1, e2) =>
+        compareOperation("jl", e1, e2)
+      case EGeq(e1, e2) =>
+        compareOperation("jge", e1, e2)
+      case ELeq(e1, e2) =>
+        compareOperation("jle", e1, e2)
       case EEq(e1, e2) =>
-        compareOperation("jne", e1, e2)
-      case ENeq(e1, e2) =>
         compareOperation("je", e1, e2)
+      case ENeq(e1, e2) =>
+        compareOperation("jne", e1, e2)
       case EAnd(e1, e2) =>
-        expr(e1); expr(e2)
+        expr(e1); 
+        assCode += "cmpl $0, %eax\n"
+        assCode += "je end" + endLabelCount + "\n"
+        expr(e2)
+        assCode += "end" + endLabelCount + ":\n"
+        endLabelCount += 1
       case EOr(e1, e2) =>
-        expr(e1); expr(e2)
-        exprHelper("if_icmple")
+        expr(e1); 
+        assCode += "cmpl $1, %eax\n"
+        assCode += "je end" + endLabelCount + "\n"
+        expr(e2)
+        assCode += "end" + endLabelCount + ":\n"
+        endLabelCount += 1
       }
   }
 
@@ -257,11 +263,17 @@ object Assembly {
     try { op(p) } finally { p.close() }
   }
 
+  def removeComments(code : String) : String = {
+    return code.replaceAll("//.*\n", "\n").replaceAll("#.*\n", "\n").replaceAll("/\\*[\n|\\w\\W]*?\\*/", "\n")
+  }
+
   //
 
   def main(args:Array[String]) = {
+    val code = removeComments(read(args(0)))
+    println(code)
     val tokens = ProgramParser.parse(read(args(0)))
-    val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
+  /*  val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
     if (index != -1) {
@@ -276,5 +288,6 @@ object Assembly {
     p.println(assCode)
   p.close()
     }
+    */
   }
 }
