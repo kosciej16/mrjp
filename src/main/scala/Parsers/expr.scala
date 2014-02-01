@@ -3,15 +3,15 @@ package Etypes
 import Ctypes._
 
 trait Expr{
-//def eval():Int
+  def type():String
 }
 
 case class EConst(value:Int) extends Expr {
-  def eval():Int = value
+  def type():String = "Int"
 }
 
 case class EString(value:String) extends Expr {
-    def eval():Int = 1
+    def eval():Int = "String"
   }
 
 case class EApp(id:CIdent, eList:List[Expr]) extends Expr {}
