@@ -119,8 +119,8 @@ object Assembly {
       case SDecr(id) => 
         adrress = variables.get((id, blockNr)).get*(-4)
         assCode += "movl " + adrress + "(%ebp) %eax\n"
-        assCode += "subl $1 %eax\n"
-        assCode += "movl %eax " + adrress + "(%ebp)\n"
+        assCode += "subl $1, %eax\n"
+        assCode += "movl %eax, " + adrress + "(%ebp)\n"
       // movl -4(%ebp) - adrress %eax - register $1 < const
       // subl $1 %eax
       // movl %eax -4($ebp)
@@ -271,15 +271,14 @@ object Assembly {
 
   def main(args:Array[String]) = {
     val code = removeComments(read(args(0)))
-    println(code)
-    val tokens = ProgramParser.parse(read(args(0)))
-  /*  val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
+    val tokens = ProgramParser.parse(code)
+    val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
     if (index != -1) {
       val pref_name = file_name.substring(0,file_name.indexOf("."))
     init(pref_name)
-    ProgramParser.test(read(args(0)))
+    ProgramParser.test(code)
   program(tokens)
     finish()
    println(dir_name)
@@ -288,6 +287,5 @@ object Assembly {
     p.println(assCode)
   p.close()
     }
-    */
   }
 }

@@ -14,6 +14,8 @@ trait ExprParser extends StandardTokenParsers with CommonParser{
   //      "!" ~> (app | value) ^^ { EUNeg(_) }
 
 
+    def parens : Parser[Expr] = "(" ~> expr <~ ")"
+
     def or = and * (
       "||" ^^^ { (a:Expr, b:Expr) => EOr(a,b) })
 
@@ -38,7 +40,7 @@ trait ExprParser extends StandardTokenParsers with CommonParser{
       "%" ^^^ { (a:Expr, b:Expr) => EMod(a,b) } )
 
     def unary : Parser[Expr] = "-" ~> (app | value) ^^ { e => EUMinus(e) } | 
-      "!" ~> (app | value) ^^ { e => EUNeg(e) } | app | value
+      "!" ~> (app | value) ^^ { e => EUNeg(e) } | app | value | parens
 
     def value = "true" ^^ { _ => ELitTrue() } |"false" ^^ { _ => ELitFalse() } | 
       numericLit ^^ { s => EConst(s.toInt) } | item |
@@ -47,7 +49,7 @@ trait ExprParser extends StandardTokenParsers with CommonParser{
     def app : Parser[Expr] = item ~ "(" ~ repsep(expr, ",") ~ ")" ^^ { case i ~ _ ~ l ~ _ => EApp(i,l) }
 
 
-    def expr = ( or | value | item)          //top level expression
+    def expr = ( or | parens | value | item)          //top level expression
     return expr
   }
 
