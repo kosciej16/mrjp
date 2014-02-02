@@ -27,7 +27,8 @@ object Checker {
   def init() : Unit = {
     func.put(CIdent("printInt"), (TType("void"), List(PArg(TType("int"),CIdent("a")))))
     func.put(CIdent("printString"), (TType("void"), List(PArg(TType("string"),CIdent("a")))))
-    func.put(CIdent("readString"), (TType("String"), List()))
+    func.put(CIdent("readString"), (TType("string"), List()))
+    func.put(CIdent("readInt"), (TType("int"), List()))
   }
 
   def read(path : String) : String = {
@@ -59,20 +60,30 @@ object Checker {
   }
 
   def varExists(id : CIdent, blockNr : Int) = {
-    println(id.getName(), blockNr)
     if (variables.contains((id, blockNr))) {
       throw new IllegalStateException(id.getName() + " variable exists");
     }
   }
 
   def goodType(id : CIdent, blockNr : Int, typ : Type) : Type = {
-    if (!variables.contains((id, blockNr))) {
+      println(id.getName(), blockNr)
+    if (blockNr < 0) {
       throw new IllegalStateException(id.getName() + " no variable");
+    }
+    if (!variables.contains((id, blockNr))) {
+      goodType(id, blockNr - 1, typ)
     }
     else if (typ.getType() != "any" && variables.get(id, blockNr).get != typ) {
       throw new IllegalStateException(id.getName() + " bad type");
     }
-    return variables.get(id,blockNr).get
+    else return variables.get(id,blockNr).get
+  }
+
+  def expTypeList(input : Expr, blockNr : Int, types : List[Type]) {
+    val typ : Type = getType(input, blockNr)
+    if (!types.contains(typ)) {
+      throw new IllegalStateException(" bad expr type");
+    }
   }
 
   def expType(input : Expr, blockNr : Int, typ : Type = TType("int"), expType : Type = TType("int")) : Type = {
@@ -109,6 +120,7 @@ object Checker {
       case INoInit(id) => variables.put((id, blockNr), typ)
       case IInit(id, e) => 
         expType(e, blockNr, typ, typ)
+        println(id.getName(), blockNr, "item")
         variables.put((id, blockNr), typ)
     }
   }
@@ -125,16 +137,22 @@ object Checker {
       case SInc(id) => goodType(id, blockNr, TType("int"))
       case SExpr(e) => getType(e, blockNr)
       case SAss(id, e) => 
+        println ("beg")
         var typ : Type = goodType(id, blockNr, TType("any"))
         expType(e, blockNr, typ, typ)
+        println ("end")
       case SVRet() => assCode += "jmp _return_" + currentFunId + "\n"
       case SRet(e) => 
-      //ret
       case SCond(e,s) => 
-
+        getType(e, blockNr + 1)
+        stmt(s, blockNr)
       case SCondElse(e,s1, s2) => 
-
+        getType(e, blockNr)
+        stmt(s1, blockNr + 1)
+        stmt(s2, blockNr + 1)
       case SWhile(e, s) =>
+        getType(e, blockNr)
+        stmt(s, blockNr + 1)
       case SBlock(x) => 
         block(SBlock(x), blockNr + 1)
         removeBlock(blockNr + 1)
@@ -150,9 +168,9 @@ object Checker {
   def getType(input : Expr, blockNr : Int) : Type = {
     var typ : Type = TType("any")
     input match {
-      case ELitTrue() => TType("bool")
-      case ELitFalse() => TType("bool")
-      case CIdent(s) => { variables.get((CIdent(s), blockNr)).get }
+      case ELitTrue() => TType("boolean")
+      case ELitFalse() => TType("boolean")
+      case CIdent(s) => { goodType(CIdent(s), blockNr, TType("any")) }
       case EConst(v) => TType("int")
       case EString(s) => TType("string")
       case EApp(i, l) => appArgs(i, l)
@@ -173,39 +191,42 @@ object Checker {
         expType(e2, blockNr, typ)
       case EUMinus(e1) => 
         expType(e1, blockNr)
-      case EGt(e1, e2) => TType("bool")
+      case EUNeg(e1) => 
+        expType(e1, blockNr, TType("boolean"), TType("boolean"))
+      case EGt(e1, e2) =>
+        typ = getType(e1, blockNr)
+        expType(e2, blockNr, typ, typ)
+        return TType("boolean")
         //ifeq label
-      case ELt(e1, e2) => TType("bool")
-      case EGeq(e1, e2) => TType("bool")
-      case ELeq(e1, e2) => TType("bool")
-      case EEq(e1, e2) => TType("bool")
-      case ENeq(e1, e2) => TType("bool")
-      case EAnd(e1, e2) => TType("bool")
-      case EOr(e1, e2) =>  TType("bool")
+      case ELt(e1, e2) =>
+        typ = getType(e1, blockNr)
+        expType(e2, blockNr, typ, typ)
+        return TType("boolean")
+      case EGeq(e1, e2) =>
+        typ = getType(e1, blockNr)
+        expType(e2, blockNr, typ, typ)
+        return TType("boolean")
+      case ELeq(e1, e2) =>
+        typ = getType(e1, blockNr)
+        expType(e2, blockNr, typ, typ)
+        return TType("boolean")
+      case EEq(e1, e2) =>
+        typ = getType(e1, blockNr)
+        expType(e2, blockNr, typ, typ)
+        return TType("boolean")
+      case ENeq(e1, e2) =>
+        typ = getType(e1, blockNr)
+        expType(e2, blockNr, typ, typ)
+        return TType("boolean")
+      case EAnd(e1, e2) =>
+        expTypeList(e1, blockNr, List(TType("int"), TType("boolean")))
+        expTypeList(e2, blockNr, List(TType("int"), TType("boolean")))
+        return TType("boolean")
+      case EOr(e1, e2) => 
+        expTypeList(e1, blockNr, List(TType("int"), TType("boolean")))
+        expTypeList(e2, blockNr, List(TType("int"), TType("boolean")))
+        return TType("boolean")
       }
-  }
-
-  def convertType (typ : Type) : String = {
-    println(typ.getType())
-    typ.getType() match {
-      case "string" => "Ljava/lang/String;"
-      case "int" => "I"
-      case "boolean" => "I"
-      case "void" => "V"
-    }
-  }
-
-  def getMethodName (id : CIdent) : String = {
-    func.get(id).get match {
-      case (typ, typList) =>
-        getMethodName(id, typ, typList)
-    }
-  }
-
-  def getMethodName (id : CIdent, typ : Type, typList : List[PArg]) : String = {
-      id.getName()+"("+
-      typList.foldLeft("")((acc, s) => convertType(s.getType()) + acc) +
-      ")" + convertType(typ) +"\n"
   }
 
   def finish() = {
@@ -221,8 +242,6 @@ object Checker {
   def removeComments(code : String) : String = {
     return code.replaceAll("//.*\n", "\n").replaceAll("#.*\n", "\n").replaceAll("/\\*[\n|\\w\\W]*?\\*/", "\n")
   }
-
-  //
 
   def check(tokens : PParser.ProgramParser.ParseResult[List[PFnDef]]) = {
     init()

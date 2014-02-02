@@ -9,7 +9,6 @@ extern struct _IO_FILE *stdin;
 char* strcat(char*, const char*);
 char* strcpy(char*, const char*);
 
-
 void printInt(int i){
   printf("%d\n",i);
 }

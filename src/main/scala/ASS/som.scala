@@ -15,19 +15,20 @@ object Assembly {
   var assCode : String = ""
   var currentType : Char = ' '
   var varCount : Int = 1
-  var pushCount : Int = 1
   var currentFunId : String = ""
   var labelCount : Int = 0
   var stringCount : Int = 0
   var endLabelCount : Int = 0
   val variables = scala.collection.mutable.Map[(CIdent,Int), Int]()
+  val checkerVariables = scala.collection.mutable.Map[(CIdent,Int), Type]()
   val strings = scala.collection.mutable.Map[String, Int]()
   val func = scala.collection.mutable.Map[CIdent,(Type,List[PArg])]()
 
   def init(file : String) : Unit = {
     func.put(CIdent("printInt"), (TType("void"), List(PArg(TType("int"),CIdent("a")))))
     func.put(CIdent("printString"), (TType("void"), List(PArg(TType("string"),CIdent("a")))))
-    func.put(CIdent("readString"), (TType("String"), List()))
+    func.put(CIdent("readInt"), (TType("int"), List()))
+    func.put(CIdent("readString"), (TType("string"), List()))
     assCode += ".file \"a\"\n.text\n.data\n.globl _start\n"
     assCode += "strplace0\n"
   }
@@ -87,57 +88,73 @@ object Assembly {
       }
   }
 
+  def addParams(params : List[PArg], blockNr : Int) = {
+    varCount = 2
+    for (param <- params) 
+      param match {
+        case PArg(typ, id) =>
+          putVariable(id, blockNr, typ)
+          varCount += 1
+      }
+      varCount = -1
+  }
+
   def fnDef(input : PFnDef) = {
-    varCount = 1
+    varCount = 2
     input match {
       case PFnDef(typ, id, l, b) => 
+        addParams(l.reverse, 0)
         currentFunId = id.getName()
-        assCode += "_"+ id.getName() +":\npushl %ebp\nmovl %esp, %ebp\n"
-        assCode += "subl $" + 4*countVarsBlock(b) + ", %ebp\n"
+        assCode += id.getName() +":\npushl %ebp\nmovl %esp, %ebp\n"
+        assCode += "subl $" + 4*countVarsBlock(b) + ", %esp\n"
         block(b)
         assCode += "_return_" + currentFunId + ":\n"
-        for (i <- 1 to pushCount) 
-          assCode += "popl %ebp\n"
+        assCode += "addl $" + 4*countVarsBlock(b) + ", %esp\n"
+        assCode += "popl %ebp\n"
         assCode += "ret\n"
     }
   }
 
-  def item(input : Item, blockNr : Int) = {
+  def item(input : Item, blockNr : Int, typ : Type) = {
     input match {
-      case INoInit(id) => initVar(id, blockNr)
-      case IInit(id, e) => initVar(id, blockNr, e)
+      case INoInit(id) => noInit(id, blockNr, typ)
+      case IInit(id, e) => initVar(id, blockNr, typ, e)
     }
   }
 
-  def initVar(id : CIdent, blockNr : Int, e : Expr = EConst(1)) = {
-    variables.put((id, blockNr), varCount)
+  def noInit(id : CIdent, blockNr : Int, typ : Type) = {
+    putVariable(id, blockNr, typ)
+    varCount -= 1
+  }
+
+  def initVar(id : CIdent, blockNr : Int, typ : Type, e : Expr) = {
+    putVariable(id, blockNr, typ)
     expr(e,blockNr)
-    assCode += "movl %eax, " + (-4)*varCount + "(%ebp)\n"
-    varCount += 1
+    assCode += "movl %eax, " + 4*varCount + "(%ebp)\n"
+    varCount -= 1
   }
 
   def getAdrress(id : CIdent, blockNr : Int) : Int = {
     if (variables.contains((id, blockNr))) {
-      return variables.get((id, blockNr)).get*(-4)
+      return variables.get((id, blockNr)).get*4
     }
     return getAdrress(id, blockNr - 1)
   }
-
 
   def stmt(input : Stmt, blockNr : Int, labelNr : Int) : Unit = {
     var adrress=0
     input match {
       case SDecl(typ,itemList) => 
         for(i <- itemList)
-          item(i, blockNr)
+          item(i, blockNr, typ)
       case SDecr(id) => 
         adrress = getAdrress(id, blockNr)
-        assCode += "movl " + adrress + "(%ebp) %eax\n"
+        assCode += "movl " + adrress + "(%ebp), %eax\n"
         assCode += "subl $1, %eax\n"
         assCode += "movl %eax, " + adrress + "(%ebp)\n"
       case SInc(id) => assCode += ""
         adrress = getAdrress(id, blockNr)
-        assCode += "movl " + adrress + "(%ebp) %eax\n"
+        assCode += "movl " + adrress + "(%ebp), %eax\n"
         assCode += "addl $1, %eax\n"
         assCode += "movl %eax, " + adrress + "(%ebp)\n"
       case SExpr(e) => expr(e,blockNr)
@@ -170,10 +187,10 @@ object Assembly {
         assCode += "while_" + labelNr + ":\n"
         expr(e,blockNr)
         assCode += "cmpl $0, %eax\n"
-        assCode += "je end_" + labelNr + "\n"
+        assCode += "je end" + labelNr + "\n"
         stmt(s, blockNr, labelNr+2)
         assCode += "jmp while_" + labelNr + "\n"
-        assCode += ".end" + labelNr + ":\n"
+        assCode += "end" + labelNr + ":\n"
       case SBlock(x) => block(SBlock(x), blockNr + 1)
     }
   }
@@ -199,7 +216,6 @@ object Assembly {
       case ELitTrue() => assCode += "movl $1, %eax\n"
       case ELitFalse() => assCode += "movl $0, %eax\n"
       case CIdent(s) => {
-        println(blockNr)
         val adrress = getAdrress(CIdent(s), blockNr)
         assCode += "movl " + adrress + "(%ebp), %eax\n"
       }
@@ -220,16 +236,31 @@ object Assembly {
 //        assCode += getMethodName(i)
       case EAdd(e1, e2) =>
         basicOperation(e1, e2, blockNr)
-        assCode += "addl %ebx, %eax\n"
+        
+        Checker.variables = checkerVariables
+        if (Checker.getType(e1, blockNr) == TType("string")) {
+          assCode += "pushl %eax\n"
+          assCode += "pushl %ebx\n"
+          assCode += "call concat\n"
+          assCode += "popl %ebx\n"
+          assCode += "popl %ebx\n"
+        }
+        else {
+          assCode += "addl %ebx, %eax\n"
+        }
+
       case ESub(e1, e2) =>
-        basicOperation(e1, e2, blockNr)
+        basicOperation(e2, e1, blockNr)
         assCode += "subl %ebx, %eax\n"
       case EMul(e1, e2) =>
         basicOperation(e1, e2, blockNr)
-        assCode += "mull %ebx\n"
+        assCode += "imull %ebx\n"
       case EDiv(e1, e2) =>
-        expr(e1,blockNr); expr(e2,blockNr)
-        assCode += "idiv\n"
+        basicOperation(e2,e1,blockNr)
+        assCode += "movl $0, %edx\n"
+        assCode += "idivl %ebx\n"
+      case EMod(e1, e2) =>
+      case EUMinus(e1) => assCode += "negl %eax\n"
       case EGt(e1, e2) =>
         //ifeq label
         compareOperation("jg", e1, e2, blockNr)
@@ -260,32 +291,20 @@ object Assembly {
       }
   }
 
-  def convertType (typ : Type) : String = {
-    println(typ.getType())
-    typ.getType() match {
-      case "string" => "Ljava/lang/String;"
-      case "int" => "I"
-      case "boolean" => "I"
-      case "void" => "V"
+  def putVariable(id : CIdent, blockNr : Int, typ : Type) = {
+    variables.put((id, blockNr), varCount)
+    checkerVariables.put((id, blockNr), typ)
+    var i = 1;
+    while (variables.contains((id, blockNr+i))) {
+      variables.remove(id, blockNr+i)
+      checkerVariables.remove(id, blockNr+i)
+      i = i+1;
     }
-  }
-
-  def getMethodName (id : CIdent) : String = {
-    func.get(id).get match {
-      case (typ, typList) =>
-        getMethodName(id, typ, typList)
-    }
-  }
-
-  def getMethodName (id : CIdent, typ : Type, typList : List[PArg]) : String = {
-      id.getName()+"("+
-      typList.foldLeft("")((acc, s) => convertType(s.getType()) + acc) +
-      ")" + convertType(typ) +"\n"
   }
 
   def finish() = {
     assCode = assCode.replaceFirst("strplace"+stringCount+"\n","")
-    assCode += "_start:\ncall _main\nmovl $1,%eax\nint  $0x80\n"
+    assCode += "_start:\ncall main\nmovl $1,%eax\nint  $0x80\n"
   }
 
   def printToFile(f: java.io.File)(op: java.io.PrintWriter => Unit) {
@@ -297,11 +316,14 @@ object Assembly {
     return code.replaceAll("//.*\n", "\n").replaceAll("#.*\n", "\n").replaceAll("/\\*[\n|\\w\\W]*?\\*/", "\n")
   }
 
+
   //
 
   def main(args:Array[String]) = {
     val code = removeComments(read(args(0)))
+    println(code)
     val tokens = ProgramParser.parse(code)
+    Checker.check(tokens)
     val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
@@ -316,6 +338,6 @@ object Assembly {
    val p = new java.io.PrintWriter(new File(dir_name + "out/" + pref_name + ".s"))
     p.println(assCode)
   p.close()
-    }
+    } 
   }
 }

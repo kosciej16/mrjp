@@ -12,7 +12,7 @@ object ProgramParser extends StandardTokenParsers with StmtParser
     with TypeParser with ExprParser with CommonParser{
 //    lexical.delimiters ++= List("{","}")
 
-    lexical.delimiters ++= List(";","=",",","(",")","+","-", "*", "/", "{", "}", "(", ")")
+    lexical.delimiters ++= List(";","=",",","(",")","+","-", "*", "/", "{", "}", "(", ")", "%")
     lexical.delimiters ++= List("++","--",">","<","==",">=","<=","!=", "!", "&&", "||")
     lexical.reserved.add("true")
     lexical.reserved.add("false")
