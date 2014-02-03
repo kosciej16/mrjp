@@ -191,7 +191,9 @@ object Assembly {
         stmt(s, blockNr, labelNr+2)
         assCode += "jmp while_" + labelNr + "\n"
         assCode += "end" + labelNr + ":\n"
-      case SBlock(x) => block(SBlock(x), blockNr + 1)
+      case SBlock(x) =>
+        labelCount = math.max(labelCount, labelNr)
+        block(SBlock(x), blockNr + 1)
     }
   }
 
@@ -261,6 +263,7 @@ object Assembly {
         assCode += "idivl %ebx\n"
       case EMod(e1, e2) =>
       case EUMinus(e1) => assCode += "negl %eax\n"
+      case EUNeg(e1) => 
       case EGt(e1, e2) =>
         //ifeq label
         compareOperation("jg", e1, e2, blockNr)
@@ -335,7 +338,7 @@ object Assembly {
    finish()
    println(dir_name)
    println(pref_name)
-   val p = new java.io.PrintWriter(new File(dir_name + "out/" + pref_name + ".s"))
+   val p = new java.io.PrintWriter(new File(dir_name + pref_name + ".s"))
     p.println(assCode)
   p.close()
     } 

@@ -66,7 +66,6 @@ object Checker {
   }
 
   def goodType(id : CIdent, blockNr : Int, typ : Type) : Type = {
-      println(id.getName(), blockNr)
     if (blockNr < 0) {
       throw new IllegalStateException(id.getName() + " no variable");
     }
@@ -120,7 +119,6 @@ object Checker {
       case INoInit(id) => variables.put((id, blockNr), typ)
       case IInit(id, e) => 
         expType(e, blockNr, typ, typ)
-        println(id.getName(), blockNr, "item")
         variables.put((id, blockNr), typ)
     }
   }
@@ -137,10 +135,8 @@ object Checker {
       case SInc(id) => goodType(id, blockNr, TType("int"))
       case SExpr(e) => getType(e, blockNr)
       case SAss(id, e) => 
-        println ("beg")
         var typ : Type = goodType(id, blockNr, TType("any"))
         expType(e, blockNr, typ, typ)
-        println ("end")
       case SVRet() => assCode += "jmp _return_" + currentFunId + "\n"
       case SRet(e) => 
       case SCond(e,s) => 

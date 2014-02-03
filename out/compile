@@ -1,6 +1,0 @@
-#!/bin/bash
-
-#./latcMain $1 > ${2}.s 
-gcc -m32 -c -o ${1}.o ${1}.s
-gcc -m32 -c -o runtime.bc runtime.c
-ld -melf_i386 ${1}.o runtime.bc --dynamic-linker /lib/ld-linux.so.2 -lc
