@@ -1,0 +1,9 @@
+#!/bin/bash
+
+for file in *.lat ; do
+    pref=${file%%.*}
+    echo $pref
+    ./$pref > $pref.myout
+    cat $pref.output $pref.myout
+    sleep 5
+done
