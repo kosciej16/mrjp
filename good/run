@@ -4,6 +4,6 @@ for file in *.lat ; do
     pref=${file%%.*}
     echo $pref
     ./$pref > $pref.myout
-    cat $pref.output $pref.myout
-    sleep 5
+    diff $pref.output $pref.myout
+    sleep 1
 done

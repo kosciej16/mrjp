@@ -13,9 +13,11 @@ void empty(){}
 
 void printInt(int i){
   printf("%d\n",i);
+  fflush(stdout);
 }
 void printString(char* s){
   printf("%s\n",s);
+  fflush(stdout);
 }
 
 const char* readString(){

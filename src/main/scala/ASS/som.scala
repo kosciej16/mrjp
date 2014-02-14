@@ -59,6 +59,7 @@ object Assembly {
         for(s <- stmtList)
           stmt(s, blockNr, labelCount)
     }
+    removeBlock(blockNr)
   }
 
   def countVarsBlock(input : SBlock) : Int = {
@@ -117,7 +118,7 @@ object Assembly {
 
   def item(input : Item, blockNr : Int, typ : Type) = {
     input match {
-      case INoInit(id) => noInit(id, blockNr, typ)
+      case INoInit(id) => initVar(id, blockNr, typ, EConst(0))
       case IInit(id, e) => initVar(id, blockNr, typ, e)
     }
   }
@@ -128,8 +129,8 @@ object Assembly {
   }
 
   def initVar(id : CIdent, blockNr : Int, typ : Type, e : Expr) = {
-    putVariable(id, blockNr, typ)
     expr(e,blockNr)
+    putVariable(id, blockNr, typ)
     assCode += "movl %eax, " + 4*varCount + "(%ebp)\n"
     varCount -= 1
   }
@@ -139,6 +140,15 @@ object Assembly {
       return variables.get((id, blockNr)).get*4
     }
     return getAdrress(id, blockNr - 1)
+  }
+
+  def removeBlock(blockNr : Int) = {
+    for (((k,b),_) <- variables) {
+      if (b == blockNr) variables.remove((k,b))
+    }    
+    for (((k,b),_) <- checkerVariables) {
+      if (b == blockNr) checkerVariables.remove((k,b))
+    }    
   }
 
   def stmt(input : Stmt, blockNr : Int, labelNr : Int) : Unit = {
@@ -262,8 +272,14 @@ object Assembly {
         assCode += "movl $0, %edx\n"
         assCode += "idivl %ebx\n"
       case EMod(e1, e2) =>
-      case EUMinus(e1) => assCode += "negl %eax\n"
-      case EUNeg(e1) => 
+      case EUMinus(e) => expr(e, blockNr); assCode += "negl %eax\n"
+      case EUNeg(e) => {
+        expr(e, blockNr)
+        assCode += "cmpl $0, %eax\n"
+        assCode += "sete %al\n"
+        assCode += "movzbl %al, %eax\n"
+      }
+
       case EGt(e1, e2) =>
         //ifeq label
         compareOperation("jg", e1, e2, blockNr)
@@ -280,16 +296,28 @@ object Assembly {
       case EAnd(e1, e2) =>
         expr(e1,blockNr); 
         assCode += "cmpl $0, %eax\n"
-        assCode += "je end" + endLabelCount + "\n"
+        assCode += "je false" + endLabelCount + "\n"
         expr(e2,blockNr)
-        assCode += "end" + endLabelCount + ":\n"
+        assCode += "cmpl $0, %eax\n"
+        assCode += "je false" + endLabelCount + "\n"
+        assCode += "movl $1, %eax\n"
+        assCode += "jmp true" + endLabelCount + "\n"
+        assCode += "false" + endLabelCount + ":\n"
+        assCode += "movl $0, %eax\n"
+        assCode += "true" + endLabelCount + ":\n"
         endLabelCount += 1
       case EOr(e1, e2) =>
         expr(e1,blockNr); 
         assCode += "cmpl $1, %eax\n"
-        assCode += "je end" + endLabelCount + "\n"
+        assCode += "je true" + endLabelCount + "\n"
         expr(e2,blockNr)
-        assCode += "end" + endLabelCount + ":\n"
+        assCode += "cmpl $1, %eax\n"
+        assCode += "je true" + endLabelCount + "\n"
+        assCode += "movl $0, %eax\n"
+        assCode += "jmp false" + endLabelCount + "\n"
+        assCode += "true" + endLabelCount + ":\n"
+        assCode += "movl $1, %eax\n"
+        assCode += "false" + endLabelCount + ":\n"
         endLabelCount += 1
       }
   }
@@ -300,6 +328,10 @@ object Assembly {
     var i = 1;
     while (variables.contains((id, blockNr+i))) {
       variables.remove(id, blockNr+i)
+      i = i+1;
+    }
+    i = 1;
+    while (checkerVariables.contains((id, blockNr+i))) {
       checkerVariables.remove(id, blockNr+i)
       i = i+1;
     }
