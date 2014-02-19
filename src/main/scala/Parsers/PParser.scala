@@ -6,13 +6,12 @@ import Stypes._
 import SParser.StmtParser
 import EParser.ExprParser
 import TParser.TypeParser
-import CParser.CommonParser
 
 object ProgramParser extends StandardTokenParsers with StmtParser
-    with TypeParser with ExprParser with CommonParser{
+    with TypeParser with ExprParser{
 //    lexical.delimiters ++= List("{","}")
 
-    lexical.delimiters ++= List(";","=",",","(",")","+","-", "*", "/", "{", "}", "(", ")", "%")
+    lexical.delimiters ++= List(";",":","=",",",".","(",")","+","-", "*", "/", "{", "}", "(", ")", "%", "[", "]")
     lexical.delimiters ++= List("++","--",">","<","==",">=","<=","!=", "!", "&&", "||")
     lexical.reserved.add("true")
     lexical.reserved.add("false")
@@ -21,18 +20,26 @@ object ProgramParser extends StandardTokenParsers with StmtParser
     lexical.reserved.add("boolean")
     lexical.reserved.add("void")
     lexical.reserved.add("return")
+    lexical.reserved.add("new")
     lexical.reserved.add("while")
+    lexical.reserved.add("for")
     lexical.reserved.add("if")
     lexical.reserved.add("else")
+    lexical.reserved.add("class")
+    lexical.reserved.add("null")
 
     def typ = getTypeParser()
     def expr = getExprParser()
     def stmt = getStmtParser()
     def block : Parser[SBlock]= "{" ~ rep(stmt) ~ "}" ^^ { case _ ~ slist ~ _ => SBlock(slist) }
 
-    def program = rep(fnDef) 
+    def program = rep(classDef | fnDef) 
     def fnDef = typ ~ item ~ "(" ~ repsep(arg,",") ~ ")" ~ block ^^ { case t ~ i ~ _ ~ params ~ _ ~ b => PFnDef(t, i, params, b) }
+    def typeDef = typ ~ item ~ "(" ~ repsep(arg,",") ~ ")" ~ block ^^ { case t ~ i ~ _ ~ params ~ _ ~ b => PFnDef(t, i, params, b) }
+//    def classDef = "class" ~ ident ~ "{" ~ "int" ~ ident ~ "}" ^^ {case _ ~ i1 ~ _ ~ _ ~ i2 ~ _ => Temp(i1, i2) }
+    def classDef = "class" ~ ident ~ "{" ~ repsep(typeDef | decl, ";") ~ ";" ~ "}" ^^ { case _ ~ i ~ _ ~ fields ~ _ ~ _ => PCDef(i, fields) }
     def arg = typ ~ item ^^ { case t ~ i => PArg(t,i) } 
+    def decl = getTypeParser() ~ repsep(noInit, ",") ^^ { case t ~ items => PDecl(t, items) }
 
 
     def parse(s:String) = {

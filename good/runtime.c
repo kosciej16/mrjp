@@ -52,3 +52,11 @@ void* allocate_array(int n){
 	memset(res,0,n);
 	return res;
 }
+
+void setValue(int a[], int index, int value) {
+ //   a[index] = value;
+}
+
+int getValue(int *a, int index) {
+    return a[index];
+}

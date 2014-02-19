@@ -1,11 +1,11 @@
 import java.io._
 import Etypes._
 import Types._
-import Ctypes._
 import Stypes._
 import Ptypes._
 import scala.util.parsing.combinator.syntactical._
 import scala.util.parsing.combinator._
+import scala.collection.mutable._
 
 import PParser.ProgramParser
 
@@ -20,15 +20,15 @@ object Checker {
   var labelCount : Int = 0
   var stringCount : Int = 0
   var endLabelCount : Int = 0
-  var variables = scala.collection.mutable.Map[(CIdent,Int), Type]()
-  val strings = scala.collection.mutable.Map[String, Int]()
-  val func = scala.collection.mutable.Map[CIdent,(Type,List[PArg])]()
+  var variables = Map[(LeftVar,Int), Type]()
+  val strings = Map[String, Int]()
+  val func = Map[LeftVar,(Type,List[PArg])]()
 
   def init() : Unit = {
-    func.put(CIdent("printInt"), (TType("void"), List(PArg(TType("int"),CIdent("a")))))
-    func.put(CIdent("printString"), (TType("void"), List(PArg(TType("string"),CIdent("a")))))
-    func.put(CIdent("readString"), (TType("string"), List()))
-    func.put(CIdent("readInt"), (TType("int"), List()))
+    func.put(Ident("printInt"), (TType("void"), List(PArg(TType("int"),Ident("a")))))
+    func.put(Ident("printString"), (TType("void"), List(PArg(TType("string"),Ident("a")))))
+    func.put(Ident("readString"), (TType("string"), List()))
+    func.put(Ident("readInt"), (TType("int"), List()))
   }
 
   def read(path : String) : String = {
@@ -59,13 +59,13 @@ object Checker {
     }
   }
 
-  def varExists(id : CIdent, blockNr : Int) = {
+  def varExists(id : LeftVar, blockNr : Int) = {
     if (variables.contains((id, blockNr))) {
       throw new IllegalStateException(id.getName() + " variable exists");
     }
   }
 
-  def goodType(id : CIdent, blockNr : Int, typ : Type) : Type = {
+  def goodType(id : LeftVar, blockNr : Int, typ : Type) : Type = {
     if (blockNr < 0) {
       throw new IllegalStateException(id.getName() + " no variable");
     }
@@ -92,7 +92,7 @@ object Checker {
     return typ
   }
 
-  def addVar(id : CIdent, typ : Type, blockNr : Int) = {
+  def addVar(id : LeftVar, typ : Type, blockNr : Int) = {
     varExists(id, blockNr)
     variables.put((id, blockNr), typ)
   }
@@ -123,7 +123,7 @@ object Checker {
     }
   }
 
-  def initVar(id : CIdent, blockNr : Int, e : Expr = EConst(1)) = {
+  def initVar(id : LeftVar, blockNr : Int, e : Expr = EConst(1)) = {
   }
 
   def stmt(input : Stmt, blockNr : Int) : Unit = {
@@ -155,7 +155,7 @@ object Checker {
     }
   }
 
-  def appArgs(id : CIdent, params : List[Expr]) : Type = {
+  def appArgs(id : LeftVar, params : List[Expr]) : Type = {
     func.get(id).get match {
       case (typ, typList) => return typ
     }
@@ -166,7 +166,11 @@ object Checker {
     input match {
       case ELitTrue() => TType("boolean")
       case ELitFalse() => TType("boolean")
-      case CIdent(s) => { goodType(CIdent(s), blockNr, TType("any")) }
+      case Ident(s) => { goodType(Ident(s), blockNr, TType("any")) }
+      case Table(s, e) => { TType("array")}
+      case Struct(s, field) => { TType(s) }
+      case RTable(_, e) => { TType("Rarray") }
+      case RStruct(s) => { TType(s) }
       case EConst(v) => TType("int")
       case EString(s) => TType("string")
       case EApp(i, l) => appArgs(i, l)

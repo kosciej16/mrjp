@@ -9,9 +9,11 @@ trait TypeParser extends StandardTokenParsers {
 
     def getTypeParser () : Parser[Type] = {
 
-      def typ = ("int" | "string" | "boolean" | "void") ^^ {s => TType(s)}
+      def typ = ("int" | "string" | "boolean" | "void" ) ^^ {s => TType(s)}
+      def array : Parser[Type] = (typ | struct) ~ "[" ~ "]" ^^ { case t ~ _ ~ _ => TArray(t) }
+      def struct : Parser[Type] = ident ^^ { i => TStruct(i) }
       def fun = typ ~ "(" ~ rep(typ) ~ ")" ^^ { case t ~ _ ~ list ~ _ => TFun(t, list) }
-      def typeParser = typ | fun
+      def typeParser = array | typ | fun | struct
       return typeParser
     }
 
