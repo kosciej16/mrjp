@@ -32,6 +32,11 @@ case class Struct(s:String, field:LeftVar) extends LeftVar {
   def getField : String = field.getName()
  }
 
+case class TableStruct(t:Table, field:LeftVar) extends LeftVar {
+  def getName() : String = t.getName()
+  def getField : String = field.getName()
+ }
+
 case class StructApp(s:String, app:EApp) extends LeftVar {
   def getName() : String = s
  }

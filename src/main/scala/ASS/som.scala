@@ -19,11 +19,14 @@ object Assembly {
   var currentType : Char = ' '
   var varCount : Int = 1
   var currentFunId : String = ""
+  var currentStructId : String = ""
   var labelCount : Int = 0
   var stringCount : Int = 0
   var endLabelCount : Int = 0
   val varTypes = Map[String, String]()
   val structs = Map[String, Map[String, Int]]()
+  val structTypes = Map[String, Map[String, String]]()
+  val inheritance = Map[String, String]()
   val variables = Map[(LeftVar,Int), Int]()
   val checkerVariables = Map[(LeftVar,Int), Type]()
   val strings = Map[String, Int]()
@@ -135,40 +138,64 @@ object Assembly {
         assCode += "addl $" + 4*countVarsBlock(b) + ", %esp\n"
         assCode += "popl %ebp\n"
         assCode += "ret\n"
-      case PCDef(name, fields) => 
-        varCount = 0
-        var vars = Map[String, Int]()
+      case PCDef(name, fields) => {
+        println("PCDef")
+        structVars(name, fields)
+        currentStructId = name
         for (field <- fields) {
           field match {
-            case PDecl(typ, items) =>
-            for (item <- items) {
-              println(item)
-              vars.put(item.getName(), varCount)
-              varCount += 1
+            case PFnDef(typ, id, l, b) => {
+              println("PFnDef")
+              l :+ (PArg(TStruct(name), Ident("this")))
+              addParams(l.reverse, 0)
+              currentFunId = id.getName()
+              assCode += currentStructId + "_" + id.getName() +":\npushl %ebp\nmovl %esp, %ebp\n"
+              assCode += "subl $" + 4*countVarsBlock(b) + ", %esp\n"
+              block(b)
+              assCode += "_return_" + currentStructId + "_" + currentFunId + ":\n"
+              assCode += "addl $" + 4*countVarsBlock(b) + ", %esp\n"
+              assCode += "popl %ebp\n"
+              assCode += "ret\n"
             }
-            println("struct put", name)
-            structs.put(name, vars)
+            case _ =>
           }
         }
+      }
+      currentStructId = ""
+      currentFunId = ""
     }
   }
 
-  def item(input : Item, blockNr : Int, typ : Type) = {
+  def structVars(name : String, fields : List[Prog]) : Unit = {
+    varCount = 0
+    var vars = Map[String, Int]()
+    var types = Map[String, String]()
+    for (field <- fields) {
+      field match {
+        case PDecl(typ, items) => {
+          println("PDecl")
+          for (item <- items) {
+            println(item)
+            vars.put(item.getName(), varCount)
+            types.put(item.getName(), typ.getName())
+            varCount += 1
+          }
+        }
+        case _ =>
+      }
+    }
+    println("struct put", name)
+    structs.put(name, vars)
+    structTypes.put(name, types)
+  }
+
+  def item(input : Item, blockNr : Int, labelNr : Int) = {
     input match {
-      case INoInit(id) => initVar(id, blockNr, typ, EConst(0))
-      case IInit(id, e) => initVar(id, blockNr, typ, e)
-      case INewInit(id, RTable(t, e)) => {
-//        putVariable(id, blockNr, TType(t))
-  //      varCount -= 1
-  //      createArray(id, blockNr, e)
+      case IInit(id, e) => stmt(SAss(id, e), blockNr, labelNr)
+      case INewInit(id, r) => {
+        stmt(SNewAss(id, r), blockNr, labelNr)
       }
-      case INewInit(id, RStruct(s)) => {
-//        putVariable(id, blockNr, TType(s))
-  //      varCount -= 1
-    //    varTypes.put(id.getName(), s)
-    //    val size = getStructSize(id.getName())
-      //  createArray(id, blockNr, EConst(size), s)
-      }
+      case _ =>
     }
   }
 
@@ -204,16 +231,6 @@ object Assembly {
     varCount -= 1
   }
 
-  def getAdrress(idd : LeftVar, blockNr : Int) : Int = {
-    val id = Ident(idd.getName())
-    println (id)
-    if (variables.contains((id, blockNr))) {
-      return variables.get((id, blockNr)).get*4
-    }
-    if (blockNr < 0) return 0;
-    return getAdrress(id, blockNr - 1)
-  }
-
   def removeBlock(blockNr : Int) = {
     for (((k,b),_) <- variables) {
       if (b == blockNr) variables.remove((k,b))
@@ -230,19 +247,20 @@ object Assembly {
         for(id <- itemList) {
           putVariable(id.getVar(), blockNr, typ)
           varTypes.put(id.getName(), "Array")
-          item(id, blockNr, typ)
           varCount -= 1
+          item(id, blockNr, labelNr)
         }
       case SDecl(TStruct(typ),itemList) => 
         for(id <- itemList) {
           putVariable(id.getVar(), blockNr, TType(typ))
           varTypes.put(id.getName(), typ)
-          item(id, blockNr, TType(typ))
           varCount -= 1
+          item(id, blockNr, labelNr)
         }
       case SDecl(typ,itemList) => 
         for(id <- itemList) {
-          item(id, blockNr, typ)
+          varCount -= 1
+          item(id, blockNr, labelNr)
         }
       case SDecr(id) => 
         adrress = getAdrress(id, blockNr)
@@ -272,8 +290,8 @@ object Assembly {
         for (i <- 1 to 3) assCode += "popl %ebx\n"
       }
       case SAss(Struct(id, field), e) => {
-        val index = getStructField(id, field)
-        stmt(SAss(Table(id, EConst(index)), e), blockNr, labelNr)
+        val index = expandStruct(id, field, blockNr)
+        stmt(SAss(Table(id, EConst(index._1)), e), blockNr, labelNr)
       }
       case SNewAss(id, RTable(t, e)) => {
         createArray(id, blockNr, e)
@@ -282,8 +300,8 @@ object Assembly {
         val size = getStructSize(id.getName())
         createArray(id, blockNr, EConst(size), s)
       }
-      case SVRet() => assCode += "jmp _return_" + currentFunId + "\n"
-      case SRet(e) => expr(e,blockNr); assCode += "jmp _return_" + currentFunId + "\n"
+      case SVRet() => assCode += "jmp _return_" + currentStructId + "_" + currentFunId + "\n"
+      case SRet(e) => expr(e,blockNr); assCode += "jmp _return_" + currentStructId + "_" + currentFunId + "\n"
       //ret
       case SCond(e,s) => 
         expr(e,blockNr)
@@ -316,6 +334,7 @@ object Assembly {
         varCount -= 1
         putVariable(Ident(i1), blockNr, t)
         varCount -= 1
+        //TODO
         val indexAdrress = getAdrress(Ident("myindex"), blockNr)
         val adrress = getAdrress(Ident(i1), blockNr)
         val arrayAdrress = getAdrress(Ident(i2), blockNr)
@@ -372,9 +391,55 @@ object Assembly {
     labelCount += 1
   }
 
-  def getStructField(id : String, field : LeftVar) : Int = {
+  def expandStruct(id : String, field : LeftVar, blockNr : Int) : (Int, String) = {
+    println ("expand", id, field)
+    var typ = ""
+    if (varTypes.contains(id)) {
+      typ = varTypes.get(id).get
+    }
+    else {
+      typ = id
+    }
+    //TODO more dots
+    println("type", typ)
+    val index = structs.get(typ).get.get(field.getName()).get
+    println("got index", index)
+    expr(Table(id, EConst(index)), blockNr)
+    val newId = structTypes.get(typ).get.get(field.getName()).get
+    println("match time")
+    field match {
+      case Struct(_, f) => expandStruct(newId, f, blockNr)
+      //TODO APP can return reference to struct
+      case StructApp(s, EApp(i, l) => expr(EApp(Struct //sxpandStruct(newId, f, blockNr)
+      case Table(i, e) => expr(Table(i, EConst(index)), blockNr);
+      case _ =>
+    }
+    return (index,"")
+   // println( structs.get(typ).get.get(field.getName()).get)
+
+  }
+
+  def getAdrress(idd : LeftVar, blockNr : Int) : Int = {
+    val id = Ident(idd.getName())
+    println (id)
+    if (variables.contains((id, blockNr))) {
+      return variables.get((id, blockNr)).get*4
+    }
+    if (blockNr < 0) return -1;
+    return getAdrress(id, blockNr - 1)
+  }
+
+
+  def getStructField(id : String, field : LeftVar, varName : Boolean = true) : Int = {
     println ("struct", id)
-    val typ = varTypes.get(id).get
+    var typ : String = "" 
+    if (varName) {
+      typ = varTypes.get(id).get
+    }
+    else {
+      typ = id
+    }
+    //TODO more dots
     println ("struct2", typ, field)
     println( structs.get(typ).get.get(field.getName()).get)
     return structs.get(typ).get.get(field.getName()).get
@@ -398,7 +463,19 @@ object Assembly {
       case ELitFalse() => assCode += "movl $0, %eax\n"
       case Ident(s) => {
         val adrress = getAdrress(Ident(s), blockNr)
-        assCode += "movl " + adrress + "(%ebp), %eax\n"
+        //TODO correct to check if currentStructId = ""
+        if (adrress != -1) {
+          assCode += "movl " + adrress + "(%ebp), %eax\n"
+        }
+        else {
+          val index = getStructField(currentStructId, Ident(s), false)
+          assCode += "movl 8(%ebp), %eax\n"
+          assCode += "pushl %eax\n"
+          assCode += "movl $" + index + ", %eax\n"
+          assCode += "pushl %eax\n"
+          assCode += "call getValue\n"
+          for (i <- 1 to 2) assCode += "popl %ebx\n"
+        }
       }
       case Table(s, e) => {
         val adrress = getAdrress(Ident(s), blockNr)
@@ -411,14 +488,7 @@ object Assembly {
         
       }
       case Struct(s, field) => {
-        val adrress = getAdrress(Ident(s), blockNr)
-        val index = getStructField(s, field)
-        assCode += "movl " + adrress + "(%ebp), %eax\n"
-        assCode += "pushl %eax\n"
-        assCode += "movl $" + index + ", %eax\n"
-        assCode += "pushl %eax\n"
-        assCode += "call getValue\n"
-        for (i <- 1 to 2) assCode += "popl %ebx\n"
+        expandStruct(s, field, blockNr)
       }
       case RTable(_, e) => {
         expr(e, blockNr)
@@ -436,6 +506,15 @@ object Assembly {
         }
         assCode += "movl $(.Str" + strings.get(s).get + "), %eax\n"
       }
+      case EApp(Struct(s, fun), l) => 
+        val adrress = getAdrress(Ident(s), blockNr)
+        assCode += "movl " + adrress + "(%ebp), %eax\n"
+        assCode += "pushl %eax\n"
+        for (e <- l) { expr(e,blockNr); assCode += "pushl %eax\n"; }
+        assCode += "call " + varTypes.get(s).get + "_" + fun.getName() + "\n"
+        assCode += "pop %ebx\n"
+        for (e <- l) { assCode += "popl %ebx\n"; }
+        
       case EApp(i, l) => 
         for (e <- l) { expr(e,blockNr); assCode += "pushl %eax\n"; }
         assCode += "call " + i.getName() + "\n"
