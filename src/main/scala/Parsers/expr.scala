@@ -21,25 +21,19 @@ trait LeftVar extends Expr {
 
 case class Ident(s:String) extends LeftVar {
   def getName() : String = s
- }
+}
 
-case class Table(s:String, expr:Expr) extends LeftVar {
+case class Table(s:String, e:Expr) extends LeftVar {
   def getName() : String = s
- }
+}
 
-case class Struct(s:String, field:LeftVar) extends LeftVar {
-  def getName() : String = s
-  def getField : String = field.getName()
- }
+case class LeftItem(vals : List[LeftVar]) extends LeftVar {
+  def getName() : String = ""
+}
 
-case class TableStruct(t:Table, field:LeftVar) extends LeftVar {
-  def getName() : String = t.getName()
-  def getField : String = field.getName()
- }
-
-case class StructApp(s:String, app:EApp) extends LeftVar {
-  def getName() : String = s
- }
+case class EApp(id:String, eList:List[Expr]) extends LeftVar {
+  def getName() : String = ""
+}
 
 case class EConst(value:Int) extends Expr {
 }
@@ -47,7 +41,6 @@ case class EConst(value:Int) extends Expr {
 case class EString(value:String) extends Expr {
   }
 
-case class EApp(id:LeftVar, eList:List[Expr]) extends Expr {}
 
 case class EElem(ident:LeftVar, expr:Expr) extends Expr {}
 

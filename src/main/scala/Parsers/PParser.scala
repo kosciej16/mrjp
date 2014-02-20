@@ -7,6 +7,7 @@ import scala.util.parsing.combinator.syntactical._
 import scala.util.matching.Regex._
 import Ptypes._
 import Stypes._
+import Etypes._
 import SParser.StmtParser
 import EParser.ExprParser
 import TParser.TypeParser
@@ -39,11 +40,12 @@ object ProgramParser extends StandardTokenParsers with StmtParser
 
 //    val escape: Parser[String] = regex("""\\.?""".r)
     def program = rep(classDef | fnDef) 
-    def fnDef = typ ~ item ~ "(" ~ repsep(arg,",") ~ ")" ~ block ^^ { case t ~ i ~ _ ~ params ~ _ ~ b => PFnDef(t, i, params, b) }
-    def typeDef = typ ~ item ~ "(" ~ repsep(arg,",") ~ ")" ~ block ^^ { case t ~ i ~ _ ~ params ~ _ ~ b => PFnDef(t, i, params, b) }
+    def fnDef = typ ~ ident ~ "(" ~ repsep(arg,",") ~ ")" ~ block ^^ { case t ~ i ~ _ ~ params ~ _ ~ b => PFnDef(t, i, params, b) }
+//    def typeDef = typ ~ ident ~ "(" ~ repsep(arg,",") ~ ")" ~ block ^^ { case t ~ i ~ _ ~ params ~ _ ~ b => PFnDef(t, i, params, b) }
 //    def classDef = "class" ~ ident ~ "{" ~ "int" ~ ident ~ "}" ^^ {case _ ~ i1 ~ _ ~ _ ~ i2 ~ _ => Temp(i1, i2) }
     def classDef = "class" ~ ident ~ "{" ~ repsep((fnDef | decl), ";") ~ ";" ~ "}" ^^ { case _ ~ i ~ _ ~ fields ~ _ ~ _ => PCDef(i, fields) }
-    def arg = typ ~ item ^^ { case t ~ i => PArg(t,i) } 
+    def funItem = ident ^^ {i => Ident(i)}
+    def arg = typ ~ funItem ^^ { case t ~ i => PArg(t,i) } 
     def decl = getTypeParser() ~ repsep(noInit, ",") ^^ { case t ~ items => PDecl(t, items) }
 
 

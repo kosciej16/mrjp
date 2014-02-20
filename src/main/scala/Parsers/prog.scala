@@ -6,7 +6,7 @@ import Stypes._
 
 sealed abstract class Prog {}
 
-case class PFnDef(typ:Type, ident:LeftVar, params:List[PArg], block:SBlock) extends Prog {}
+case class PFnDef(typ:Type, ident:String, params:List[PArg], block:SBlock) extends Prog {}
 case class PCDef(name:String, fields:List[Prog]) extends Prog {}
 case class PDecl(typ:Type, ident:List[INoInit]) extends Prog {}
 case class Temp(s:String, s1:String) extends Prog {}

@@ -278,7 +278,7 @@ object Assembly {
         adrress = getAdrress(Ident(s), blockNr)
         assCode += "movl %eax, " + adrress + "(%ebp)\n"
       }
-      case SAss(Table(id, index), e) => {
+    /*  case SAss(Table(id, index), e) => {
         adrress = getAdrress(Ident(id), blockNr)
         assCode += "movl " + adrress + "(%ebp), %eax\n"
         assCode += "pushl %eax\n" 
@@ -292,7 +292,7 @@ object Assembly {
       case SAss(Struct(id, field), e) => {
         val index = expandStruct(id, field, blockNr)
         stmt(SAss(Table(id, EConst(index._1)), e), blockNr, labelNr)
-      }
+      } */
       case SNewAss(id, RTable(t, e)) => {
         createArray(id, blockNr, e)
       }
@@ -404,14 +404,14 @@ object Assembly {
     println("type", typ)
     val index = structs.get(typ).get.get(field.getName()).get
     println("got index", index)
-    expr(Table(id, EConst(index)), blockNr)
+ //   expr(Table(id, EConst(index)), blockNr)
     val newId = structTypes.get(typ).get.get(field.getName()).get
     println("match time")
     field match {
-      case Struct(_, f) => expandStruct(newId, f, blockNr)
+  //    case Struct(_, f) => expandStruct(newId, f, blockNr)
       //TODO APP can return reference to struct
-      case StructApp(s, EApp(i, l) => expr(EApp(Struct //sxpandStruct(newId, f, blockNr)
-      case Table(i, e) => expr(Table(i, EConst(index)), blockNr);
+    //  case StructApp(s, EApp(i, l) => expr(EApp(Struct //sxpandStruct(newId, f, blockNr)
+//      case Table(i, e) => expr(Table(i, EConst(index)), blockNr);
       case _ =>
     }
     return (index,"")
@@ -477,7 +477,7 @@ object Assembly {
           for (i <- 1 to 2) assCode += "popl %ebx\n"
         }
       }
-      case Table(s, e) => {
+  /*    case Table(s, e) => {
         val adrress = getAdrress(Ident(s), blockNr)
         assCode += "movl " + adrress + "(%ebp), %eax\n"
         assCode += "pushl %eax\n"
@@ -490,6 +490,7 @@ object Assembly {
       case Struct(s, field) => {
         expandStruct(s, field, blockNr)
       }
+      */
       case RTable(_, e) => {
         expr(e, blockNr)
       }
@@ -506,7 +507,7 @@ object Assembly {
         }
         assCode += "movl $(.Str" + strings.get(s).get + "), %eax\n"
       }
-      case EApp(Struct(s, fun), l) => 
+  /*    case EApp(Struct(s, fun), l) => 
         val adrress = getAdrress(Ident(s), blockNr)
         assCode += "movl " + adrress + "(%ebp), %eax\n"
         assCode += "pushl %eax\n"
@@ -514,10 +515,11 @@ object Assembly {
         assCode += "call " + varTypes.get(s).get + "_" + fun.getName() + "\n"
         assCode += "pop %ebx\n"
         for (e <- l) { assCode += "popl %ebx\n"; }
+        */
         
       case EApp(i, l) => 
         for (e <- l) { expr(e,blockNr); assCode += "pushl %eax\n"; }
-        assCode += "call " + i.getName() + "\n"
+        assCode += "call " + i + "\n"
         for (e <- l) { assCode += "popl %ebx\n"; }
 //        assCode += getMethodName(i)
       case EAdd(e1, e2) =>

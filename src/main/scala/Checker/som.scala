@@ -168,12 +168,12 @@ object Checker {
       case ELitFalse() => TType("boolean")
       case Ident(s) => { goodType(Ident(s), blockNr, TType("any")) }
       case Table(s, e) => { TType("array")}
-      case Struct(s, field) => { TType(s) }
+      //case Struct(s, field) => { TType(s) }
       case RTable(_, e) => { TType("Rarray") }
       case RStruct(s) => { TType(s) }
       case EConst(v) => TType("int")
       case EString(s) => TType("string")
-      case EApp(i, l) => appArgs(i, l)
+      case EApp(i, l) => TType("a") //appArgs(i, l)
       case EAdd(e1, e2) =>
         typ = getType(e1, blockNr)
         expType(e2, blockNr, typ, typ)
