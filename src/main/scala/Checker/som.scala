@@ -12,6 +12,7 @@ import PParser.ProgramParser
 
 object Checker {
 
+  var needReturn : Boolean = true
   var assCode : String = ""
   var currentType : Char = ' '
   var varCount : Int = 1
@@ -107,12 +108,14 @@ object Checker {
     structTypes.put(name, types)
   }
 
-  def block(input : SBlock, blockNr : Int = 0) : Unit = {
+  def block(input : SBlock, blockNr : Int = 0) : Boolean = {
+    var ret = false
     input match {
       case SBlock(stmtList) =>
         for(s <- stmtList)
-          stmt(s, blockNr)
+          ret = ret | stmt(s, blockNr)
     }
+    return ret || returnType == "void"
   }
 
   def varExists(id : LeftVar, blockNr : Int) = {
@@ -139,6 +142,7 @@ object Checker {
 
   def expTypeList(input : Expr, blockNr : Int, types : List[String]) {
     val typ : String = getType(input, blockNr)
+//    println("EXPTYPELIST", typ, input)
     if (!types.contains(typ)) {
       throw new IllegalStateException(" bad expr type");
     }
@@ -146,7 +150,7 @@ object Checker {
 
   def instance(t1 : String, t2 : String) : Boolean = {
     //TODO add inheritance
-    true
+    false
   }
 
   def checkTypes(t1 : String, t2 : String = "int") : Unit = {
@@ -180,9 +184,10 @@ object Checker {
     val blockNr = 0
     input match {
       case PFnDef(typ, id, l, b) => 
+        returnType = typ.getName()
         for (param <- l)
           addVar(param.asIdent(), param.getName(), blockNr)
-          block(b, 0)
+          if (!block(b, 0)) throw new IllegalStateException("function " + id.getName() + " need return");
           removeBlock(0)
       //TODO
       case PCDef(name, fields) => 
@@ -210,34 +215,52 @@ object Checker {
   def initVar(id : LeftVar, blockNr : Int, e : Expr = EConst(1)) = {
   }
 
-  def stmt(input : Stmt, blockNr : Int) : Unit = {
+  def stmt(input : Stmt, blockNr : Int) : Boolean = {
     input match {
       case SDecl(typ,itemList) =>
         for(i <- itemList)
           item(typ.getType(), i, blockNr)
-      case SDecr(id) => goodType(id, blockNr, "int")
-      case SInc(id) => goodType(id, blockNr, "int")
-      case SExpr(e) => getType(e, blockNr)
+        false
+      case SDecr(id) => goodType(id, blockNr, "int"); false
+      case SInc(id) => goodType(id, blockNr, "int"); false
+      case SExpr(e) => getType(e, blockNr); false
       case SAss(id, e) => 
         var typ : String = goodType(id, blockNr, "any")
         expType(e, blockNr, typ, typ)
-      case SVRet() => checkTypes("void", returnType)
-      case SRet(e) => checkTypes(getType(e, blockNr), returnType)
+        false
+      case SVRet() => checkTypes("void", returnType); true
+      case SRet(e) => 
+        checkTypes(getType(e, blockNr), returnType); true
+        true
       case SCond(e,s) => 
         getType(e, blockNr + 1)
-        if (!e.isEvaluated() || e.eval() != 0) stmt(s, blockNr)
+        var b = false
+        if (!e.isEvaluated() || e.eval() != 0) {
+          b = stmt(s, blockNr)
+        }
+        if (e.isEvaluated() && e.eval() != 0) {
+          return b
+        }
+        return false
       case SCondElse(e,s1, s2) => 
         getType(e, blockNr)
-        if (!e.isEvaluated() || e.eval() != 0) stmt(s1, blockNr + 1)
-        if (!e.isEvaluated() || e.eval() == 0) stmt(s2, blockNr + 1)
+        var b = false
+        if (!e.isEvaluated() || e.eval() != 0)
+          b = stmt(s1, blockNr + 1)
+        else
+          return stmt(s2, blockNr + 1)
+        if (!e.isEvaluated() || e.eval() == 0)
+          b = b & stmt(s2, blockNr + 1)
+        return b
       case SWhile(e, s) =>
         getType(e, blockNr)
-        stmt(s, blockNr + 1)
+        return stmt(s, blockNr + 1)
       //TODO
-      case SFor(t, i1, i2, s) =>
+      case SFor(t, i1, i2, s) => false
       case SBlock(x) => 
-        block(SBlock(x), blockNr + 1)
+        var b = block(SBlock(x), blockNr + 1)
         removeBlock(blockNr + 1)
+        return b
     }
   }
 
@@ -247,8 +270,10 @@ object Checker {
         if (typList.size != params.size) {
           throw new IllegalStateException(id.getName() + " bad number of arguments");
         }
+          println("APPARGS ",id, typList, params)
         for((t,e) <- (typList zip params)) {
-          checkTypes(expType(e, blockNr, t.getName()), t.getName())
+          println("APPARGS ",t,"teraz e", e)
+          checkTypes(getType(e, blockNr), t.getName())
         }
         return typ
     }

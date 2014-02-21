@@ -31,7 +31,7 @@ object Assembly {
   val inheritance = Map[String, String]()
   val structFields = Map[String, List[Prog]]()
   val variables = Map[(LeftVar,Int), Int]()
-  val checkerVariables = Map[(LeftVar,Int), Type]()
+  val checkerVariables = Map[(LeftVar,Int), String]()
   val strings = Map[String, Int]()
   val func = Map[LeftVar,(Type,List[PArg])]()
 
@@ -696,15 +696,15 @@ object Assembly {
       case EAdd(e1, e2) =>
         basicOperation(e1, e2, blockNr)
         
-  /*      Checker.variables = checkerVariables
-        if (Checker.getType(e1, blockNr) == TType("string")) {
+        Checker.variables = checkerVariables
+        if (Checker.getType(e1, blockNr) == "string" ) {
           assCode += "pushl %eax\n"
           assCode += "pushl %ebx\n"
           assCode += "call concat\n"
           assCode += "popl %ebx\n"
           assCode += "popl %ebx\n"
         } 
-        else*/ {
+        else {
           assCode += "addl %ebx, %eax\n"
         }
 
@@ -779,7 +779,7 @@ object Assembly {
     val id : LeftVar = Ident(idd.getName())
     println ("put variable", id, blockNr)
     variables.put((id, blockNr), varCount)
-    checkerVariables.put((id, blockNr), typ)
+    checkerVariables.put((id, blockNr), typ.getName())
     var i = 1;
     while (variables.contains((id, blockNr+i))) {
       variables.remove(id, blockNr+i)
@@ -814,7 +814,7 @@ object Assembly {
 //    println(code)
     val tokens = ProgramParser.parse(code)
 //    ProgramParser.test(code)
-//    Checker.check(tokens)
+    Checker.check(tokens)
     val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
