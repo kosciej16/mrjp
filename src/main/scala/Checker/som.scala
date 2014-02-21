@@ -225,11 +225,11 @@ object Checker {
       case SRet(e) => checkTypes(getType(e, blockNr), returnType)
       case SCond(e,s) => 
         getType(e, blockNr + 1)
-        if (!e.isEvaluated() || e.eval()) stmt(s, blockNr)
+        if (!e.isEvaluated() || e.eval() != 0) stmt(s, blockNr)
       case SCondElse(e,s1, s2) => 
         getType(e, blockNr)
-        if (!e.isEvaluated() || e.eval()) stmt(s1, blockNr + 1)
-        if (!e.isEvaluated() || !e.eval()) stmt(s2, blockNr + 1)
+        if (!e.isEvaluated() || e.eval() != 0) stmt(s1, blockNr + 1)
+        if (!e.isEvaluated() || e.eval() == 0) stmt(s2, blockNr + 1)
       case SWhile(e, s) =>
         getType(e, blockNr)
         stmt(s, blockNr + 1)

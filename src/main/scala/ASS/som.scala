@@ -22,12 +22,14 @@ object Assembly {
   var currentStructId : String = ""
   var labelCount : Int = 0
   var stringCount : Int = 0
+  var pointersCount : Int = 0
   var endLabelCount : Int = 0
   val varTypes = Map[String, String]()
   val classCodes = Map[String, String]()
   val structs = Map[String, Map[String, Int]]()
   val structTypes = Map[String, Map[String, String]]()
   val inheritance = Map[String, String]()
+  val structFields = Map[String, List[Prog]]()
   val variables = Map[(LeftVar,Int), Int]()
   val checkerVariables = Map[(LeftVar,Int), Type]()
   val strings = Map[String, Int]()
@@ -41,7 +43,7 @@ object Assembly {
     var map = Map[String,Int]()
     map.put("length", -1)
     structs.put("Array", map)
-    assCode += ".file \"a\"\n.text\n.data\n.globl _start\n"
+    assCode += ".file \"a\"\n.text\n.data\n"
     assCode += "strplace0\n"
   }
 
@@ -53,8 +55,99 @@ object Assembly {
   def program(input : PParser.ProgramParser.ParseResult[List[Prog]] ) : Unit = {
     input match {
       case PParser.ProgramParser.Success(tree, _) =>
+        tree.map(addData)
+        assCode += ".globl _start\n"
         tree.map(readDef)
         tree.map(progDef)
+    }
+  }
+
+  def myUnion(l1 : List[(String, String)], l2 : List[(String, String)]) : List[(String, String)] = {
+    var res = l1
+    var b = false
+    for ((name, met) <- l2) {
+      b = false
+      for ((name2, met2) <- l1) {
+        if (met == met2) {
+          b = true
+        }
+      }
+      if (!b) res = res :+ (name, met)
+    }
+    return res
+  }
+
+  def toMyString(input : List[(String, String)]) : String = {
+    var res = ""
+    for ((a,b) <- input) {
+      res += a + b + ", "
+    }
+    return res
+  }
+
+  def addDataFun(input : PCDef) : List[(String, String)] = {
+    var res = List[(String, String)]()
+    input match {
+      case PCDef(name, fields) => {
+        for (field <- fields) {
+          field match {
+            case PFnDef(typ, id, l, b) => {
+              res = res :+ (name, id.getName())
+            }
+            case _ =>
+          }
+        }
+      }
+    }
+    return res
+  }
+
+  def addData(input : Prog) : Unit = {
+    input match {
+      case PCDef(name, fields) => {
+        assCode += "." + name + ":\n"
+        assCode += ".long "
+        structFields.put(name, fields)
+        assCode += toMyString(addDataFun(PCDef(name, fields)))
+        assCode = assCode.dropRight(2) + "\n"
+        }
+     case PCDefExt(name, ext, fields) => {
+       assCode += "." + name + ":\n"
+       assCode += ".long "
+       var inhList = List[String]()
+       println("addData ", name, ext)
+       var prev = name
+       var funcions = List[(String, String)]()
+       inheritance.put(name,ext)
+       while(inheritance.contains(prev)) {
+         prev = inheritance.get(prev).get
+         inhList = inhList :+ prev
+       }
+       for (inh <- inhList.reverse) {
+         funcions = myUnion(funcions, addDataFun(PCDef(inh, structFields.get(inh).get)))
+//         funcions = funcions.union(addDataFun(PCDef(inh, structFields.get(inh).get)))
+       }
+      // PCDef(ext, structFields.get(ext).get)
+      structFields.put(name, fields)
+      var res = ""
+       for (field <- fields) {
+         field match {
+           case PFnDef(typ, id, l, b) => {
+             if (res.indexOf(name + id.getName()) == -1) {}
+               res += name + id.getName() + ", "
+             }
+             res = toMyString(funcions)
+             for (inh <- inhList) {
+               if (res.indexOf(inh + id.getName()) != -1)
+                 res = res.replaceAll(inh + id.getName(), name + id.getName())
+             }
+           case _ =>
+         }
+       }
+      assCode += res
+      assCode = assCode.dropRight(2) + "\n"
+     }
+      case _ => 
     }
   }
 
@@ -92,7 +185,7 @@ object Assembly {
         currentStructId = ""
         currentFunId = ""
       }
-      case PCDefExt(name, ext, fields) => {
+     case PCDefExt(name, ext, fields) => {
         structs.put(name, structs.get(ext).get)
         structTypes.put(name, structTypes.get(ext).get)
         readDef(PCDef(name, fields))
@@ -721,8 +814,8 @@ object Assembly {
 //    println(code)
     val tokens = ProgramParser.parse(code)
 //    ProgramParser.test(code)
-    Checker.check(tokens)
-/*    val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
+//    Checker.check(tokens)
+    val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
     if (index != -1) {
@@ -736,6 +829,6 @@ object Assembly {
    val p = new java.io.PrintWriter(new File(dir_name + pref_name + ".s"))
     p.println(assCode)
   p.close()
-    }  */
+    }  
   }
 }
