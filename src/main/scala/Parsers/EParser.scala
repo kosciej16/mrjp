@@ -1,10 +1,12 @@
 package EParser
 
 import scala.util.parsing.combinator.syntactical._
+import scala.util.parsing.combinator._
+import scala.util.matching.Regex._
 import Etypes._
 
 
-trait ExprParser extends StandardTokenParsers{
+trait ExprParser extends StandardTokenParsers {
 
   def getExprParser () : Parser[Expr] = {
 
