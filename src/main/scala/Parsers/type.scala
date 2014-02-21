@@ -11,7 +11,7 @@ case class TType(typ:String) extends Type {
 }
 
 case class TArray(typ:Type) extends Type {
-  def getType() : String = "Array of " + typ.getType()
+  def getType() : String = "Array " + typ.getType()
   def getName() : String = typ.getName()
 }
 

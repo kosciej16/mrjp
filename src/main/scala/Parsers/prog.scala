@@ -13,5 +13,6 @@ case class PDecl(typ:Type, ident:List[INoInit]) extends Prog {}
 case class Temp(s:String, s1:String) extends Prog {}
 case class PArg(typ:Type, ident:LeftVar) extends Prog {
     def getType() : Type = typ
+    def getName() : String = typ.getType()
     def asIdent() : LeftVar = ident
 }

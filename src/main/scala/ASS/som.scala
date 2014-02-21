@@ -97,10 +97,6 @@ object Assembly {
         structTypes.put(name, structTypes.get(ext).get)
         readDef(PCDef(name, fields))
         assCode += classCodes.get(ext).get.replaceAll(ext, name)
-        println("KOD DLA KLASY", ext)
-        println(classCodes.get(ext).get)
-        println("ORAZ KOD DLA KLASY", name)
-        println(classCodes.get(name).get)
         //println((classCodes.get(ext).get + classCodes.get(name).get).replaceAll(ext, name))
         classCodes.put(name, (classCodes.get(ext).get + classCodes.get(name).get).replaceAll(ext, name))
       }
@@ -156,7 +152,7 @@ object Assembly {
         }
         case PArg(TStruct(typ), id) => {
           varTypes.put(id.getName(), typ)
-          putVariable(id, blockNr, TType(typ))
+          putVariable(id, blockNr, TStruct(typ))
           varCount += 1
         }
         case PArg(typ, id) => {
@@ -722,10 +718,11 @@ object Assembly {
 
   def main(args:Array[String]) = {
     val code = removeComments(read(args(0)))
-    println(code)
+//    println(code)
     val tokens = ProgramParser.parse(code)
-//    Checker.check(tokens)
-    val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
+//    ProgramParser.test(code)
+    Checker.check(tokens)
+/*    val dir_name = (args(0).substring(0, args(0).lastIndexOf("/")+1))
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
     if (index != -1) {
@@ -739,6 +736,6 @@ object Assembly {
    val p = new java.io.PrintWriter(new File(dir_name + pref_name + ".s"))
     p.println(assCode)
   p.close()
-    } 
+    }  */
   }
 }
