@@ -46,7 +46,6 @@ object Assembly {
     structs.put("Array", map)
     assCode += ".file \"a\"\n.text\n.data\n"
     assCode += "strplace0\n"
-    println(assCode)
   }
 
   def read(path : String) : String = {

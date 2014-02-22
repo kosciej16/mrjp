@@ -79,6 +79,7 @@ object Checker {
                 println("NOWA KLASOWA FUNKCJA", id, param)
                 addVar(param.asIdent(), param.getName(), 0) 
               }
+              addVar(Ident("self"), name, 0) 
               block(b)
             }
             case _ =>
@@ -86,6 +87,9 @@ object Checker {
         }
       case PCDefExt(name, ext, fields) => {
         structTypes.put(name, structTypes.get(ext).get)
+        inheritance.put(name, ext)
+        if (structFunc.contains(ext))
+          structFunc.put(name, structFunc.get(ext).get)
         readDef(PCDef(name, fields))
       }
       case _ =>
@@ -110,6 +114,7 @@ object Checker {
         case _ =>
       }
     }
+    println("STRUCT VARS", name, types)
     structTypes.put(name, types)
   }
 
@@ -117,9 +122,10 @@ object Checker {
     var ret = false
     input match {
       case SBlock(stmtList) =>
-        for(s <- stmtList)
+        for(s <- stmtList) 
           ret = ret | stmt(s, blockNr)
     }
+    removeBlock(blockNr)
     return ret || returnType == "void"
   }
 
@@ -129,7 +135,7 @@ object Checker {
     }
   }
 
-  def goodType(id : LeftVar, blockNr : Int, typ : String) : String = {
+  def goodType(id : LeftVar, blockNr : Int, typ : String = "any") : String = {
     println("goodType", id, blockNr, typ)
     if (blockNr < 0) {
       if(!structTypes.contains(currentStructId) || !structTypes.get(currentStructId).get.contains(id.getName()) ) {
@@ -143,7 +149,7 @@ object Checker {
     if (!variables.contains((id, blockNr))) {
       goodType(id, blockNr - 1, typ)
     }
-    else if (typ != "any" && variables.get(id, blockNr).get != typ) {
+    else if (typ != "any" && !instance(typ, variables.get(id, blockNr).get)) {
       throw new IllegalStateException(id.getName() + " bad type expected " + typ + " got " + variables.get(id, blockNr).get);
     }
     else return variables.get(id,blockNr).get
@@ -158,14 +164,20 @@ object Checker {
   }
 
   def instance(t1 : String, t2 : String) : Boolean = {
+    if (t1 == t2) return true
+    var t3 = t1
+    while(inheritance.contains(t3)) {
+      t3 = inheritance.get(t3).get
+      if (t3 == t2) return true
+    }
+    return false
     //TODO add inheritance
-    false
   }
 
   def checkTypes(t1 : String, t2 : String = "int") : Unit = {
     println("CHECK TYPES")
     
-    if (t1 != t2 && !instance(t1, t2)) {
+    if (!instance(t2, t1)) {
       throw new IllegalStateException("type1 " + t1 + " type2 " + t2 + " types dont match");
     }
   }
@@ -174,7 +186,7 @@ object Checker {
   def expType(input : Expr, blockNr : Int, typ : String = "int", expType : String = "int") : String = {
     println("exp type")
     checkTypes(typ, expType)
-    if (getType(input, blockNr) != typ) {
+    if (!instance(getType(input, blockNr),typ)) {
       println("EXPTYP", input, getType(input, blockNr), typ)
       throw new IllegalStateException(typ + " bad expr type");
     }
@@ -182,6 +194,7 @@ object Checker {
   }
 
   def addVar(id : LeftVar, typ : String, blockNr : Int) = {
+    println("ADD VAR", id, typ, blockNr)
     varExists(id, blockNr)
     variables.put((id, blockNr), typ)
   }
@@ -202,7 +215,6 @@ object Checker {
           addVar(param.asIdent(), param.getName(), blockNr)
         }
         if (!block(b, 0)) throw new IllegalStateException("function " + id.getName() + " need return");
-        removeBlock(0)
       //TODO
       case PCDef(name, fields) => 
       case PCDefExt(name, ext, fields) => 
@@ -244,6 +256,11 @@ object Checker {
       case SAss(Table(id, e1), e2) => 
         var typ : String = goodType(Ident(id), blockNr, "any")
         expType(e1, blockNr, "int")
+        expType(e2, blockNr, typ.split(" ").last, typ.split(" ").last)
+        false
+      case SAss(Struct(name, f), e2) => 
+        var typ : String = getFieldType(name, f.getName(), blockNr)
+        expType(e2, blockNr, typ, typ)
         expType(e2, blockNr, typ.split(" ").last, typ.split(" ").last)
         false
       case SAss(id, e) => 
@@ -302,7 +319,8 @@ object Checker {
 
   def callFun(id : LeftVar, name : String, params : List[Expr], blockNr : Int) : String = {
     //println("CALL FUN")
-    var struct = variables.get(id,blockNr).get
+ //   var struct = variables.get(id,blockNr).get
+    var struct = goodType(id, blockNr)
     if (!structFunc.contains(struct))
       throw new IllegalStateException(struct + " Struct doesnt exist");
     var func = structFunc.get(struct).get
@@ -312,7 +330,8 @@ object Checker {
   }
 
   def getFieldType(name : String, field : String, blockNr : Int) : String = {
-    var typ = variables.get((Ident(name), blockNr)).get
+  //  var typ = variables.get((Ident(name), blockNr)).get
+    var typ = goodType(Ident(name), blockNr)
     typ = typ.split(" ")(0)
     if (!structTypes.contains(typ))
       throw new IllegalStateException(typ + " no such struct ")
