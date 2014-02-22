@@ -16,7 +16,7 @@ case class TArray(typ:Type) extends Type {
 }
 
 case class TStruct(typ:String) extends Type {
-  def getType() : String = "Struct " + typ
+  def getType() : String = typ
   def getName() : String = typ
 }
 

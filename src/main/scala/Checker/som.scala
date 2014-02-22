@@ -26,7 +26,7 @@ object Checker {
   val inheritance = Map[String, String]()
   var variables = Map[(LeftVar,Int), String]()
   val structTypes = Map[String, Map[String, String]]()
-  val structFunc = Map[String, Map[LeftVar,(String,List[PArg])]]()
+  val structFunc = Map[String, Map[String,(String,List[PArg])]]()
   var extendMap = Map[String, String]()
   val strings = Map[String, Int]()
   val func = Map[LeftVar,(String,List[PArg])]()
@@ -36,6 +36,9 @@ object Checker {
     func.put(Ident("printString"), ("void", List(PArg(TType("string"),Ident("a")))))
     func.put(Ident("readString"), ("string", List()))
     func.put(Ident("readInt"), ("int", List()))
+    var map = Map[String,String]()
+    map.put("length", "int")
+    structTypes.put("Array", map)
   }
 
   def read(path : String) : String = {
@@ -54,7 +57,7 @@ object Checker {
   def readDef(input : Prog) : Unit = {
     input match {
       case PFnDef(typ, id, l, b) => 
-        func.put(id, (typ.getName(), l))
+        func.put(id, (typ.getType(), l))
       //TODO
 
 
@@ -65,13 +68,15 @@ object Checker {
         for (field <- fields) {
           field match {
             case PFnDef(typ, id, l, b) => {
+              returnType = typ.getType()
 
-              var fun = Map[LeftVar,(String,List[PArg])]()
+              var fun = Map[String,(String,List[PArg])]()
               if (structFunc.contains(currentStructId))
                 fun = structFunc.get(currentStructId).get
-              fun.put(id, (typ.getType(), l))
+              fun.put(id.getName(), (typ.getType(), l))
               structFunc.put(name, fun)
               for (param <- l) {
+                println("NOWA KLASOWA FUNKCJA", id, param)
                 addVar(param.asIdent(), param.getName(), 0) 
               }
               block(b)
@@ -125,24 +130,28 @@ object Checker {
   }
 
   def goodType(id : LeftVar, blockNr : Int, typ : String) : String = {
+    println("goodType", id, blockNr, typ)
     if (blockNr < 0) {
       if(!structTypes.contains(currentStructId) || !structTypes.get(currentStructId).get.contains(id.getName()) ) {
         throw new IllegalStateException(id.getName() + " no variable");
       }
-      else return structTypes.get(currentStructId).get.get(id.getName()).get
+      else {
+        println("IN STRUCT", structTypes.get(currentStructId).get.get(id.getName()).get)
+        return structTypes.get(currentStructId).get.get(id.getName()).get
+      }
     }
     if (!variables.contains((id, blockNr))) {
       goodType(id, blockNr - 1, typ)
     }
     else if (typ != "any" && variables.get(id, blockNr).get != typ) {
-      throw new IllegalStateException(id.getName() + " bad type");
+      throw new IllegalStateException(id.getName() + " bad type expected " + typ + " got " + variables.get(id, blockNr).get);
     }
     else return variables.get(id,blockNr).get
   }
 
   def expTypeList(input : Expr, blockNr : Int, types : List[String]) {
     val typ : String = getType(input, blockNr)
-//    println("EXPTYPELIST", typ, input)
+    println("EXPTYPELIST", input, typ)
     if (!types.contains(typ)) {
       throw new IllegalStateException(" bad expr type");
     }
@@ -154,6 +163,7 @@ object Checker {
   }
 
   def checkTypes(t1 : String, t2 : String = "int") : Unit = {
+    println("CHECK TYPES")
     
     if (t1 != t2 && !instance(t1, t2)) {
       throw new IllegalStateException("type1 " + t1 + " type2 " + t2 + " types dont match");
@@ -162,8 +172,10 @@ object Checker {
 
 
   def expType(input : Expr, blockNr : Int, typ : String = "int", expType : String = "int") : String = {
+    println("exp type")
     checkTypes(typ, expType)
     if (getType(input, blockNr) != typ) {
+      println("EXPTYP", input, getType(input, blockNr), typ)
       throw new IllegalStateException(typ + " bad expr type");
     }
     return typ
@@ -184,11 +196,13 @@ object Checker {
     val blockNr = 0
     input match {
       case PFnDef(typ, id, l, b) => 
-        returnType = typ.getName()
-        for (param <- l)
+        returnType = typ.getType()
+        for (param <- l) {
+          println("NOWA FUNKCJA", id, param.getName())
           addVar(param.asIdent(), param.getName(), blockNr)
-          if (!block(b, 0)) throw new IllegalStateException("function " + id.getName() + " need return");
-          removeBlock(0)
+        }
+        if (!block(b, 0)) throw new IllegalStateException("function " + id.getName() + " need return");
+        removeBlock(0)
       //TODO
       case PCDef(name, fields) => 
       case PCDefExt(name, ext, fields) => 
@@ -207,8 +221,11 @@ object Checker {
       case INewInit(id, RTable(t, e)) =>
         checkTypes(typ, "Array " + t)
         expType(e, blockNr, "int")
+        println("ADD VAR", id)
+        addVar(id, typ, blockNr)
       case INewInit(id, RStruct(s)) =>
-        checkTypes(typ, "Struct " + s)
+        checkTypes(typ, s)
+        addVar(id, typ, blockNr)
     }
   }
 
@@ -224,14 +241,19 @@ object Checker {
       case SDecr(id) => goodType(id, blockNr, "int"); false
       case SInc(id) => goodType(id, blockNr, "int"); false
       case SExpr(e) => getType(e, blockNr); false
+      case SAss(Table(id, e1), e2) => 
+        var typ : String = goodType(Ident(id), blockNr, "any")
+        expType(e1, blockNr, "int")
+        expType(e2, blockNr, typ.split(" ").last, typ.split(" ").last)
+        false
       case SAss(id, e) => 
         var typ : String = goodType(id, blockNr, "any")
         expType(e, blockNr, typ, typ)
         false
+      case SNewAss(id, r) => goodType(id, blockNr, r.getName()); false
       case SVRet() => checkTypes("void", returnType); true
       case SRet(e) => 
         checkTypes(getType(e, blockNr), returnType); true
-        true
       case SCond(e,s) => 
         getType(e, blockNr + 1)
         var b = false
@@ -270,26 +292,47 @@ object Checker {
         if (typList.size != params.size) {
           throw new IllegalStateException(id.getName() + " bad number of arguments");
         }
-          println("APPARGS ",id, typList, params)
         for((t,e) <- (typList zip params)) {
-          println("APPARGS ",t,"teraz e", e)
           checkTypes(getType(e, blockNr), t.getName())
         }
+        println("APP ARGS", id, typ)
         return typ
     }
   }
 
+  def callFun(id : LeftVar, name : String, params : List[Expr], blockNr : Int) : String = {
+    //println("CALL FUN")
+    var struct = variables.get(id,blockNr).get
+    if (!structFunc.contains(struct))
+      throw new IllegalStateException(struct + " Struct doesnt exist");
+    var func = structFunc.get(struct).get
+    if (!func.contains(name))
+      throw new IllegalStateException(struct + " hasnt function " + name);
+    return func.get(name).get._1
+  }
+
+  def getFieldType(name : String, field : String, blockNr : Int) : String = {
+    var typ = variables.get((Ident(name), blockNr)).get
+    typ = typ.split(" ")(0)
+    if (!structTypes.contains(typ))
+      throw new IllegalStateException(typ + " no such struct ")
+    var vars = structTypes.get(typ).get
+    if (!vars.contains(field))
+      throw new IllegalStateException(typ + " hasnt field " + field)
+    return vars.get(field).get
+  }
+
   def getType(input : Expr, blockNr : Int) : String = {
-    println(input)
+    println("GET TYPE", input)
     var typ : String = "any"
     input match {
       case ELitTrue() => "boolean"
       case ELitFalse() => "boolean"
       case Ident(s) => { goodType(Ident(s), blockNr, "any") }
       //TODO
-      case Table(s, e) => { "array" }
-      case Struct(s, field) => { s }
-      case StructApp(s, som) => { s }
+      case Table(s, e) => { getType(e, blockNr) }
+      case Struct(s, field) => { getFieldType(s, field.getName(), blockNr) }
+      case StructApp(s, EApp(fun, l)) => callFun(Ident(s), fun.getName(), l, blockNr)
       case RTable(_, e) => { "Rarray" }
       case RStruct(s) => { s }
       case EConst(v) => "int"
@@ -316,7 +359,7 @@ object Checker {
       case EUNeg(e1) => 
         expType(e1, blockNr, "boolean", "boolean")
       //TODO
-      case ECast(t) => "a"
+      case ECast(t) => t
       case EGt(e1, e2) =>
         typ = getType(e1, blockNr)
         expType(e2, blockNr, typ, typ)
