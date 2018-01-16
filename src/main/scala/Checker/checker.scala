@@ -47,7 +47,7 @@ object Checker {
   def read_fnDef(input : PFnDef) = {
     input match {
       case PFnDef(typ, id, l, b) => 
-        func.put(id, (typ, l))
+        func.put(Ident(id), (typ, l))
       }
   }
 

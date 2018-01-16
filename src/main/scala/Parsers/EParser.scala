@@ -59,7 +59,8 @@ trait ExprParser extends StandardTokenParsers{
   def table = ident ~ "[" ~ getExprParser() ~ "]" ^^ { case i ~ _ ~ e ~ _ => Table(i,e) }
 
   def myIdent : Parser[LeftVar] = ident ^^ { s => Ident(s) }
-  def item : Parser[LeftVar] = repsep(app | table | myIdent, ".") ^^ {l => LeftItem(l) }
+  // def item : Parser[LeftVar] = repsep(app | table | myIdent, ".") ^^ {l => LeftItem(l) }
+  def item : Parser[LeftVar] = ident ^^ { s => Ident(s) }
 
   def rightItem : Parser[RightVar] = 
     "new" ~ ("int" | "string" | "boolean") ~ "[" ~ getExprParser() ~"]" ^^ { case _ ~ t ~ _ ~ e ~ _ => RTable(t, e) } | 
