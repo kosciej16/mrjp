@@ -57,6 +57,7 @@ object ProgramParser extends StandardTokenParsers with StmtParser
     def test(s:String) = {
       parse(s) match {
         case Success(tree, _) =>
+          println("Tree: "+tree)
         case e: NoSuccess => 
           Console.err.println("ERROR\n")
           Console.err.println(e)

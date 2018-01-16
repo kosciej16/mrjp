@@ -24,6 +24,7 @@ object Assembly {
   var labelCount : Int = 0
   var stringCount : Int = 0
   var endLabelCount : Int = 0
+  var secretVariable : LeftVar = Ident("secretVariable")
   val varTypes = Map[String, String]()
   val structs = Map[String, Map[String, Int]]()
   val structTypes = Map[String, Map[String, String]]()
@@ -267,9 +268,11 @@ object Assembly {
         }
       case SDecl(typ,itemList) => 
         for(id <- itemList) {
+          // putVariable(id.getVar(), blockNr, typ)
           putVariable(id.getVar(), blockNr, typ)
           varCount -= 1
           item(id, blockNr, labelNr)
+          swapVariable(id.getVar(), blockNr, typ)
         }
       case SDecr(id) => 
         adrress = getAdrress(id, blockNr)
@@ -633,7 +636,8 @@ object Assembly {
   }
 
   def putVariable(idd : LeftVar, blockNr : Int, typ : Type) = {
-    val id : LeftVar = Ident(idd.getName())
+    // val id : LeftVar = Ident(idd.getName())
+    val id : LeftVar = secretVariable
     // println ("put variable", id, blockNr)
     variables.put((id, blockNr), varCount)
     checkerVariables.put((id, blockNr), typ)
@@ -647,6 +651,27 @@ object Assembly {
       checkerVariables.remove(id, blockNr+i)
       i = i+1;
     }
+    println(variables)
+  }
+
+  def swapVariable(id : LeftVar, blockNr : Int, typ : Type) = {
+    println(id)
+    println(blockNr)
+    var varCount : Option[Int] = variables.get((secretVariable, blockNr))
+    variables.remove(secretVariable, blockNr)
+    variables.put((id, blockNr), varCount.get)
+    checkerVariables.put((id, blockNr), typ)
+    var i = 1;
+    while (variables.contains((id, blockNr+i))) {
+      variables.remove(id, blockNr+i)
+      i = i+1;
+    }
+    i = 1;
+    while (checkerVariables.contains((id, blockNr+i))) {
+      checkerVariables.remove(id, blockNr+i)
+      i = i+1;
+    }
+    println(variables)
   }
 
   def finish() = {
