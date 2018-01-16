@@ -1,6 +1,7 @@
 //TODO
 // a = a.next a.next.elem
 
+import sys.process._
 import java.io._
 import Etypes._
 import Types._
@@ -42,8 +43,8 @@ object Assembly {
     structs.put("Array", map)
     assCode += ".file \"a\"\n.text\n.data\n.globl main\n"
     assCode += "strplace0\n"
-    addString("%d")
-    addString("%s")
+    addString("%d\\\\n")
+    addString("%s\\\\n")
     // assCode += ".LC0:\n\t.string \"%d\"\n"
   }
 
@@ -57,7 +58,7 @@ object Assembly {
       case PParser.ProgramParser.Success(tree, _) =>
         tree.map(read_fnDef)
         tree.map(progDef)
-      case PParser.ProgramParser.Failure(tree, _) =>
+      case _ =>
     }
   }
 
@@ -167,6 +168,8 @@ object Assembly {
       }
       currentStructId = ""
       currentFunId = ""
+      //TODO ?
+      case _ =>
     }
   }
 
@@ -383,6 +386,8 @@ object Assembly {
       case SBlock(x) =>
         labelCount = math.max(labelCount, labelNr)
         block(SBlock(x), blockNr + 1)
+      // TODO
+      case _ => 
     }
   }
 
@@ -442,7 +447,7 @@ object Assembly {
 
 
   def getStructField(id : String, field : LeftVar, varName : Boolean = true) : Int = {
-    println ("struct", id)
+    // println ("struct", id)
     var typ : String = "" 
     if (varName) {
       typ = varTypes.get(id).get
@@ -451,8 +456,8 @@ object Assembly {
       typ = id
     }
     //TODO more dots
-    println ("struct2", typ, field)
-    println( structs.get(typ).get.get(field.getName()).get)
+    // println ("struct2", typ, field)
+    // println( structs.get(typ).get.get(field.getName()).get)
     return structs.get(typ).get.get(field.getName()).get
   }
 
@@ -460,9 +465,9 @@ object Assembly {
   }
 
   def getStructSize(id : String) : Int = {
-    println("get size", id)
+    // println("get size", id)
     val name = varTypes.get(id).get
-    println("size name", name)
+    // println("size name", name)
     return structs.get(name).get.size
   }
 
@@ -531,7 +536,7 @@ object Assembly {
         */
         
       case EApp(i, l) => 
-        println(i)
+        // println(i)
         if (i == "printInt") {
           expr(l.head, blockNr)
           assCode += "movq %rax, %rsi\nmovq $.Str0, %rdi\nmovq $0, %rax\ncall printf\n"
@@ -543,6 +548,7 @@ object Assembly {
         else {
           for (e <- l) { expr(e,blockNr); assCode += "pushq %rax\n"; }
           assCode += "call " + i + "\n"
+          for (_ <- l) { assCode += "popq %rbx\n"; }
         }
         // for (e <- l) { assCode += "popq %rbx\n"; }
 //        assCode += getMethodName(i)
@@ -574,12 +580,12 @@ object Assembly {
         assCode += "movq $0, %rdx\n"
         assCode += "idivq %rbx\n"
         assCode += "mov %rdx, %rax\n"
-      case EUMinus(e) => expr(e, blockNr); assCode += "negl %rax\n"
+      case EUMinus(e) => expr(e, blockNr); assCode += "negq %rax\n"
       case EUNeg(e) => {
         expr(e, blockNr)
         assCode += "cmpq $0, %rax\n"
         assCode += "sete %al\n"
-        assCode += "movzbl %al, %rax\n"
+        assCode += "movzbq %al, %rax\n"
       }
       case ECast(_) => {
         assCode += "movq $0, %rax\n"
@@ -668,20 +674,24 @@ object Assembly {
     val file_name = ((args(0).substring(args(0).lastIndexOf("/")+1)))
     val index = file_name.indexOf(".")
     if (index != -1) {
-      val pref_name = file_name.substring(0,file_name.indexOf("."))
+      val pref_name = dir_name + file_name.substring(0,file_name.indexOf("."))
       init(pref_name)
       ProgramParser.test(code)
       program(tokens)
       finish()
-      println(dir_name)
-      println(pref_name)
-      val p = new java.io.PrintWriter(new File(dir_name + pref_name + ".s"))
+      // println(dir_name)
+      // println(pref_name)
+      val p = new java.io.PrintWriter(new File(pref_name + ".s"))
       for (line <- assCode.split('\n')) {
         if (line.last != ':')
           p.print('\t')
-        p.println(line)
+          p.println(line)
       }
       p.close()
+      println("gcc -c " + pref_name + ".s")
+      "gcc -c " + pref_name + ".s -o" + pref_name + ".o" !;
+      "gcc -o " + pref_name + " " + pref_name + ".o" !;;
+      System.err.println("OK\n")
     } 
   }
 }

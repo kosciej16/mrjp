@@ -1,9 +1,0 @@
-#!/bin/bash
-
-for file in *.lat ; do
-    pref=${file%%.*}
-    echo $pref
-    ./$pref > $pref.myout
-    diff $pref.output $pref.myout
-    sleep 1
-done

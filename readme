@@ -1,0 +1,17 @@
+Project uses scala and sbt.
+
+First download sbt
+
+wget https://github.com/sbt/sbt/releases/download/v1.1.0/sbt-1.1.0.tgz -o sbt.tgz
+
+unpack and compile
+
+tar -xf sbt.tgz
+_JAVA_OPTIONS="-Xms512m"
+./sbt/bin/sbt package
+
+It creates jar file in ./target/scala-<version>/<project_name>.jar
+
+We can run it using command 
+
+java -cp <our_jar>:$(cat target/streams/compile/dependencyClasspath/\$global/streams/export) Assembly <file>
